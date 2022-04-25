@@ -1,0 +1,149 @@
+---
+title: "1st_Step_IAC"
+output: html_document
+date: '2022-04-25'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(igraph)
+library(igraphdata)
+load("bicimad-data.RData")
+plot.igraph(bicimad)
+```
+
+## Identify relevant nodes and explain what information seems to be useful for understanding the network
+
+Let's first calculate how many nodes are in the network.
+
+```{r}
+gorder(bicimad)
+vertex_attr_names(bicimad)
+vertex_attr(bicimad)$address
+```
+
+We can see that there are 262 total nodes in the network. Each of these nodes corresponds to a different bike stations. We want to identify which nodes are the most relevant. This will be the nodes with more edges, which could be translated at those stations were more bicycles are both taken and left.
+
+We can calculate the degree of the whole network easily.
+
+```{r}
+md=degree(bicimad)
+md
+mean(md)
+```
+
+As we have calculated the mean of the degrees, we can see that on average 76.335 bikes are taken from each station.
+
+However, for this analysis it might be more useful to know for example which node is the one with higher degree, meaning that place were more bikes are taken, which will mean one of the most concurred places for taking bicycles. This could mean that either other public transport methods are not accesible enough to get to that place or that it is a part of the city were most people visiting it are young and are willing to take a bike as its ride. we can obtain it by:
+
+```{r}
+degree(bicimad) %>% which.max()
+```
+
+```{r}
+degree(bicimad,54)
+vertex_attr(bicimad)$address[54]
+```
+
+We can see that the node 54 is the one with highest degree (233). This node stands for the node 57, which corresponds to the station located in "Calle Valencia 1". Indeed, this street belongs to the neighbourhood of "lavapies", which is one place that has been growing up a lot in Madrid in the past years. Always visited by young people as it is more affordable and more "cool" these days.
+
+We could also consider calculating the degree using the weights. However, our network does not include weights. Therefore the results obtained will be the same.
+
+```{r}
+table(strength(bicimad))
+graph_strength_distribution <- function (graph,cumulative=FALSE,...)
+{
+  if (!is.igraph(graph)) {
+    stop("Not a graph object")
+  }
+  cs <- graph.strength(graph,...)
+  hi <- hist(cs,-1:max(cs),plot=FALSE)$density
+  if (!cumulative) {
+    res <- hi
+  }
+  else {
+    res <- rev(cumsum(rev(hi)))
+  }
+  res
+}
+graph_strength_distribution(bicimad)
+```
+```{r}
+graph_strength_distribution(bicimad)
+degree_distribution(bicimad)
+```
+
+
+```{r}
+plot(0:max(strength(bicimad)),graph_strength_distribution(bicimad),
+     type="h",col="deepskyblue2",lwd=2,
+     main="Weighted degree distribution of karate network",
+     xlab="Degree",ylab="Frequency")
+points(0:max(strength(bicimad)),graph_strength_distribution(bicimad),pch=20)
+```
+
+Analyzing the frequencies plot, we can see that the degrees more repeated in our network are those between 50-100. However, we can also seen that the most repeated one is that with 52 degrees, which is the peak of the curve and it is repeated just once. We can see in the table that it is repeated 8 times, whereas those second most repeated are those with 6 times (76 and 84).
+
+```{r}
+which(table(degree(bicimad))==8)
+which(table(degree(bicimad))==6)
+```
+
+
+We can also check whether our network is a multigraph or not. Without further knowledge, the network might have loops, as leaving a bike on the same station where it has taken at first seems not only possible but very doable. Indeed we can see that it is a multigraph.
+
+```{r}
+is_simple(bicimad)
+```
+
+
+
+## Is the graph connected? Obtain components, diameter, farther vertices,...
+
+Now, to know if every vertex is reachable from every other i.e. being connected, we can take this function.
+
+```{r}
+is_connected(bicimad)
+```
+
+As expected, the graph is indeed connected. This is reasonable as there are not constraints about going to one place or another using these type of bike service. You can take a bike from any station and return it whatever different one.
+
+```{r}
+components(bicimad)
+```
+
+Indeed the components as expected is the whole graph that we have been discussing above.
+
+Now, to know, which is the longest path between vertices, we can obtain its diameter
+
+```{r}
+get_diameter(bicimad)
+diameter(bicimad)
+```
+
+Now considering the weak case, we will see that the diameter is lower than the strong case.
+
+```{r}
+get_diameter(bicimad,directed=FALSE)
+diameter(bicimad,directed=FALSE)
+```
+
+
+And also the farthest vertice
+
+```{r}
+farthest_vertices(bicimad)
+```
+
+So, the two stations that are furthest away are "Calle Camino de los Vinateros nº 28" and "Avenida de la Complutense". In fact, checking this journey in Google maps, it says that there is a 10km distance between those two and it might take about 40 minutes to get there.
+
+
+
+
+
+
+
+
