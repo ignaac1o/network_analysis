@@ -1,0 +1,9 @@
+.Rproj.user
+.Rhistory
+.Ruserdata
+.DS_Store
+**.pdf
+**.log
+**.html
+**_files/
+**_cache/

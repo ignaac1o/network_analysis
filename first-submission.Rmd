@@ -1,0 +1,62 @@
+---
+title: "First Submission"
+author: "Ignacio Almodóvar, Javier Muñoz Flores & Luis Ángel Rodríguez García"
+date: '05-04-2022'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction 
+
+This group is formed by:
+
+- Ignacio Almodóvar (100467652\@alumnos.uc3m.es)
+- Javier Muñoz Flores (100471494\@alumnos.uc3m.es)
+- Luis Ángel Rodríguez García (100469000\@alumnos.uc3m.es)
+
+## Network
+
+The network we would like to work with is generated from the data available in the following [link](https://opendata.emtmadrid.es/Datos-estaticos/Datos-generales-(1)), that is an open data provided by the Madrid's public transport company (EMT). It shows information (for instance the travel time) about trips with bicycles made by the users.
+
+Specifically, the network was created from data of June 2021 ("Situación estaciones bicimad por día y hora de Junio de 2021" to generate the vertices and "Datos de uso Junio 2021" to generate the links). Due to the fact that there are more than 400,000 observations, then we have selected randomly just 10,000 rows to create the igraph object (identified as _bicimad_). All of these objects are available in the "bici-mad.RData" file attached.
+
+```{r pressure, eval=FALSE}
+library(jsonlite)
+library(parallel)
+library(igraph)
+
+stations <- lapply(readLines("data-stations-202106.json"), fromJSON, flatten = TRUE)
+stations <- stations[[1]]$stations
+stations <- stations[, c(13, 10, 5, 8, 11)]
+colnames(stations)[which(names(stations) == "id")] <- "name"
+stations <- subset(stations, stations$name != 123)
+stations <- subset(stations, stations$name != 124)
+
+json_raw   <- readr::read_file("data-users-202106.json")
+json_lines <- unlist(strsplit(json_raw, "\\n"))
+trips <- do.call(rbind, mclapply(json_lines, 
+                                 FUN = function(x){as.data.frame(jsonlite::fromJSON(x))}))
+colnames(trips)[which(names(trips) == "idunplug_station")] <- "from"
+colnames(trips)[which(names(trips) == "idplug_station")] <- "to"
+trips <- subset(trips, trips$to != 2009 & trips$from != 2009)
+trips <- trips[,-c(1,2, 3, 5)]
+trips <- trips[, c(3, 5, 2, 1, 4, 6, 7)]
+
+indexes <- sample(nrow(trips), size=10000)
+bicimad <- graph_from_data_frame(d=trips[indexes,], directed=T, vertices=stations)
+```
+
+The chunk above contains the logic we have executed in order to define the objects available in the .RData file. 
+The graph generated is the following:
+
+```{r include=FALSE}
+library(igraph)
+```
+
+```{r include=TRUE, echo=FALSE, fig.align='center', results='hide'}
+load("bicimad-data.RData")
+plot(bicimad, layout = layout.norm(as.matrix(coordinates)), vertex.size = 2, edge.arrow.size = 1, edge.arrow.width = 0.5)
+```
