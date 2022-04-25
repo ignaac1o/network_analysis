@@ -1,0 +1,151 @@
+---
+title: "First Step Visualization"
+author: "Ignacio Almodóvar Cárdenas, Javier Muñoz Flores & Luis Ángel Rodríguez García"
+date: "22-04-2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+Load the libraries:
+
+```{r, results='hide'}
+library(igraph)
+```
+
+Load the database within the `bicimad-data.RData`file:
+
+```{r}
+load("bicimad-data.RData")
+```
+
+# Visualization of the network
+
+## Simple graph layouts
+
+### Circular layout
+
+```{r, fig.width=12, fig.height=12}
+plot.igraph(bicimad, layout=layout_in_circle, main="Bicimad network with circular layout", vertex.size=8, vertex.label.cex=0.6)
+```
+
+### Circular layout
+
+```{r, fig.width=12, fig.height=12}
+plot.igraph(bicimad, layout=layout_as_star,main="Bicimad network with star layout", vertex.size=8, vertex.label.cex=0.6)
+```
+
+### Tree layout
+
+```{r, fig.width=12, fig.height=12}
+plot.igraph(bicimad, layout=layout_as_tree, main="Bicimad network with tree layout", vertex.size=8, vertex.label.cex=0.6)
+```
+
+### Grid layout
+
+```{r, fig.width=15, fig.height=15}
+plot.igraph(bicimad, layout=layout_on_grid, main="Bicimad network with grid layout", vertex.size=8, vertex.label.cex=0.6)
+```
+
+### Sphere layout
+
+```{r, fig.width=15, fig.height=15}
+plot.igraph(bicimad, layout=layout_on_sphere, main="Bicimad network with sphere layout", vertex.size=8, vertex.label.cex=0.6)
+```
+
+### Chord diagram
+
+In this case, Chord diagram is not useful as the graph contains multiple edges.
+
+## Graph layouts based on maximizing energy functions
+
+### Davidson-Harel layout
+
+This layout takes too while to be executed, this might happen because the graph contains multiple edges
+
+```{r}
+plot.igraph(bicimad, layout=layout_with_dh, main="Bicimad network with Davidson-Harel layout", vertex.size=8, vertex.label.cex=0.6)
+```
+
+
+### Fruchterman-Reingold layout
+
+```{r, fig.width=15, fig.height=15}
+plot.igraph(bicimad, layout=layout_with_fr, main="Bicimad network with Fruchterman-Reingold layout", vertex.size=8, vertex.label.cex=0.6)
+```
+
+### GEM force-directed layout
+
+```{r, fig.width=15, fig.height=15}
+plot.igraph(bicimad, layout=layout_with_gem, main="Bicimad network with GEM force-directed layout", vertex.size=8, vertex.label.cex=0.6)
+```
+
+### Graphopt layout
+
+```{r, fig.width=15, fig.height=15}
+plot.igraph(bicimad, layout=layout_with_graphopt, main="Bicimad network with graphopt layout", vertex.size=8, vertex.label.cex=0.6)
+```
+
+### Kamada-Kawai layout
+
+```{r, fig.width=15, fig.height=15}
+plot.igraph(bicimad, layout=layout_with_kk, main="Bicimad network with Kamada-Kawai layout", vertex.size=8, vertex.label.cex=0.6)
+```
+
+## Graph layouts based on multidimensional scaling
+
+```{r, fig.width=15, fig.height=15}
+plot.igraph(bicimad, layout=layout_with_mds, main="Bicimad network with multidimensional scaling layout", vertex.size=8, vertex.label.cex=0.6)
+```
+
+# Decorating graph layouts
+
+```{r, fig.width=15, fig.height=15}
+V(bicimad)$size <- round(log(strength(bicimad)))
+travel_time_scaled <- scale(E(bicimad)$travel_time)
+E(bicimad)$width <- unlist(split(travel_time_scaled, rep(1:ncol(travel_time_scaled), each = nrow(travel_time_scaled))))+1
+plot.igraph(bicimad, layout=layout_with_mds, main="Karate network with Muldimensional layout")
+```
+
+```{r, fig.width=12, fig.height=12, results='hide'}
+library(dplyr)
+library(RColorBrewer)
+pal <- brewer.pal(n = 5, name = "Dark2")
+coordinates <- stations %>% select(c(4,5)) %>% 
+  mutate(
+    latitude = as.numeric(latitude),
+    longitude = as.numeric(longitude))
+longitude_quantiles <- quantile(as.numeric(stations$longitude), prob=c(.30,.70))
+latitude_quantiles <- quantile(as.numeric(stations$latitude), prob=c(.30,.70))
+areas <- ifelse(
+  Reduce("&", list(
+    as.numeric(stations$latitude) > latitude_quantiles[1], 
+    as.numeric(stations$latitude) < latitude_quantiles[2], 
+    as.numeric(stations$longitude) > longitude_quantiles[1], 
+    as.numeric(stations$longitude) < longitude_quantiles[2])), "C", 
+                ifelse(as.numeric(stations$longitude) >= longitude_quantiles[2], 
+                ifelse(as.numeric(stations$latitude) >= latitude_quantiles[2], 'NE', 'SE'),
+                ifelse(as.numeric(stations$latitude) >= latitude_quantiles[2], 'NW', 'SW')))
+# NE: "#1B9E77"
+# SE: "#D95F02"
+# SW: "#7570B3"
+# NW: "#E7298A"
+# C:  "#66A61E"
+V(bicimad)$area <- areas
+V(bicimad)$color <- sapply(areas, function(x) 
+    ifelse(x=="NE", pal[1],
+           ifelse(x=="SE", pal[2], 
+                  ifelse(x=="SW", pal[3], 
+                         ifelse(x=="NW", pal[4], pal[5]))))
+    )
+E(bicimad)$color <- tail_of(bicimad, E(bicimad))$color
+bicimad <- delete_vertex_attr(bicimad, 'color')
+plot.igraph(bicimad, layout = layout.norm(as.matrix(coordinates)),
+            main="Bicimad network with custome layout using the latitude and the longitude",
+            vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1,
+            vertex.label.cex=0.5)
+```
