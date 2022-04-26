@@ -31,10 +31,7 @@ library(RColorBrewer)
 
 pal <- brewer.pal(n = 5, name = "Dark2")
 
-coordinates <- stations %>% select(c(4,5)) %>% 
-  mutate(
-    latitude = as.numeric(latitude),
-    longitude = as.numeric(longitude))
+coordinates <- stations %>% select(c(4,5))
 longitude_quantiles <- quantile(as.numeric(stations$longitude), prob=c(.30,.70))
 latitude_quantiles <- quantile(as.numeric(stations$latitude), prob=c(.30,.70))
 areas <- ifelse(
@@ -46,11 +43,8 @@ areas <- ifelse(
                 ifelse(as.numeric(stations$longitude) >= longitude_quantiles[2], 
                 ifelse(as.numeric(stations$latitude) >= latitude_quantiles[2], 'NE', 'SE'),
                 ifelse(as.numeric(stations$latitude) >= latitude_quantiles[2], 'NW', 'SW')))
-# NE: "#1B9E77"
-# SE: "#D95F02"
-# SW: "#7570B3"
-# NW: "#E7298A"
-# C:  "#66A61E"
+
+# NE: "#1B9E77" | SE: "#D95F02" | SW: "#7570B3" | NW: "#E7298A" | C:  "#66A61E"
 V(bicimad)$area <- areas
 V(bicimad)$color <- sapply(areas, function(x) 
     ifelse(x=="NE", pal[1],
@@ -61,6 +55,8 @@ V(bicimad)$color <- sapply(areas, function(x)
 E(bicimad)$color <- tail_of(bicimad, E(bicimad))$color
 bicimad <- delete_vertex_attr(bicimad, 'color')
 ```
+
+Once we have the colors defined by zone, we can associated the color to each out edge of an specific vertex. We will only consider the colors for the edges.
 
 # Visualization of the network
 
