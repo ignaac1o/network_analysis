@@ -27,7 +27,7 @@ degree(bicimad,deg)
 vertex_attr(bicimad)$address[deg]
 ```
 
-We can see that the node 169 is the one with highest degree (110). This corresponds to the station located in "Calle Manuel Silvela". Indeed, this street belongs to the neighborhood of "Trafalgar", which is a place frequently visited by young people, ergo people willing to take a bike as an option to get to that place easily and cheaply.
+We can see that the node 169 is the one with highest degree (110). This corresponds to the station located in "Calle Manuel Silvela". Indeed, this street belongs to the neighborhood of "Trafalgar", which is a place frequently visited by young people, ergo people willing to take a bike as an option to get to that place easily and cheaply. Also, visualizing the area contained in the M-30 we can see that the point were this station is located is very close to what will be de geometric center of the figure.
 
 Nevertheless, we have taken the degree without considering the weight. Therefore, that most frequent node correspond not to the most visited one but to the most diverse one i.e that one were more people from different stations over Madrid come and go.
 
