@@ -31,7 +31,7 @@ library(RColorBrewer)
 
 pal <- brewer.pal(n = 5, name = "Dark2")
 
-coordinates <- stations %>% select(c(4,5))
+coordinates <- stations[,c(4,5)]
 longitude_quantiles <- quantile(as.numeric(stations$longitude), prob=c(.30,.70))
 latitude_quantiles <- quantile(as.numeric(stations$latitude), prob=c(.30,.70))
 areas <- ifelse(
