@@ -47,7 +47,7 @@ trips <- trips[,-c(1,2, 3, 5)]
 trips <- trips[, c(3, 5, 2, 1, 4, 6, 7)]
 trip_summarize <- trips %>% 
   group_by(from, to) %>%  
-  summarise(mean_travel_time = mean(travel_time), num_trips = n(), .groups = "keep")
+  summarise(mean_travel_time = mean(travel_time), weight = n(), .groups = "keep")
 
 indexes <- sample(nrow(trip_summarize), size=10000)
 bicimad <- graph_from_data_frame(d=trip_summarize[indexes,], directed=T, vertices=stations)

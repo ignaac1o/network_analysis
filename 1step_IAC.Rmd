@@ -17,38 +17,18 @@ plot.igraph(bicimad)
 
 ## Identify relevant nodes and explain what information seems to be useful for understanding the network
 
-Let's first calculate how many nodes are in the network.
+
+In previous section we have already calculated the degree of each node. However, for this analysis it might be more useful to know which node is the one with highest degree, i.e that place were more bikes are taken and left. This node will mean one of the most concurred places for taking bicycles. 
+
+This could represent that either other public transport methods are not accessible enough to get to that place of the city or that it is a place were most people visiting it are young and are willing to take a bike as a method to get there. We can easily obtain the index for the node with highest degree and its value, as well as the correspondent address:
 
 ```{r}
-gorder(bicimad)
-vertex_attr_names(bicimad)
-vertex_attr(bicimad)$address
+deg=degree(bicimad) %>% which.max()
+degree(bicimad,deg)
+vertex_attr(bicimad)$address[deg]
 ```
 
-We can see that there are 262 total nodes in the network. Each of these nodes corresponds to a different bike stations. We want to identify which nodes are the most relevant. This will be the nodes with more edges, which could be translated at those stations were more bicycles are both taken and left.
-
-We can calculate the degree of the whole network easily.
-
-```{r}
-md=degree(bicimad)
-md
-mean(md)
-```
-
-As we have calculated the mean of the degrees, we can see that on average 76.335 bikes are taken from each station.
-
-However, for this analysis it might be more useful to know for example which node is the one with higher degree, meaning that place were more bikes are taken, which will mean one of the most concurred places for taking bicycles. This could mean that either other public transport methods are not accesible enough to get to that place or that it is a part of the city were most people visiting it are young and are willing to take a bike as its ride. we can obtain it by:
-
-```{r}
-degree(bicimad) %>% which.max()
-```
-
-```{r}
-degree(bicimad,54)
-vertex_attr(bicimad)$address[54]
-```
-
-We can see that the node 54 is the one with highest degree (233). This node stands for the node 57, which corresponds to the station located in "Calle Valencia 1". Indeed, this street belongs to the neighbourhood of "lavapies", which is one place that has been growing up a lot in Madrid in the past years. Always visited by young people as it is more affordable and more "cool" these days.
+We can see that the node 57 is the one with highest degree (233). This corresponds to the station located in "Calle Valencia 1". Indeed, this street belongs to the neighborhood of "lavapies", which is one place that has been growing up a lot in Madrid in the past years. Always visited by young people as it is more affordable and more "cool" these days. Therefore, we could say that the results obtained makes total sense.
 
 We could also consider calculating the degree using the weights. However, our network does not include weights. Therefore the results obtained will be the same.
 
@@ -71,6 +51,8 @@ graph_strength_distribution <- function (graph,cumulative=FALSE,...)
 }
 graph_strength_distribution(bicimad)
 ```
+
+
 ```{r}
 graph_strength_distribution(bicimad)
 degree_distribution(bicimad)
