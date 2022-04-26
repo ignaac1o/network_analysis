@@ -191,8 +191,6 @@ round(mean(deg_in),5) == round(gsize(bicimad)/gorder(bicimad),5)
 
 Let's compute the degree distribution in order to carry out a further characterization of the sequence. Because of the large number of observations of the data, i.e. a large value of L, it is suitable to represent this distribution through an histogram and a kernel density. We show the in, out and total degree distribution and we will see if there is any significant difference between them.
 
-Let's compute the degree distribution in order to carry out a further characterization of the sequence. Because of the large number of observations of the data, i.e. a large value of L, it is suitable to represent this distrubtion through an histogram and a kernel density. We show the in, out and total degree distribution and we will see if there is any significant difference between them.
-
 ```{r fig.width=7, fig.height=4}
 par(mfrow=c(1,2),mar=c(5,4,4,2)+0.1)
 hist(degree(bicimad,mode="in"),
