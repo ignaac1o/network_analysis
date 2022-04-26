@@ -1,0 +1,190 @@
+---
+title: 'Assignment: First Step'
+subtitle: 'Network Analysis - Master Statistics for Data Science'
+author: "Ignacio Almodóvar Cárdenas, Javier Muñoz Flores & Luis Ángel Rodríguez García"
+date: "20-04-2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if(!require(jsonlite)) install.packages(jsonlite)
+library(jsonlite)
+if(!require(parallel)) install.packages(parallel)
+library(parallel)
+if(!require(igraph)) install.packages(igraph)
+library(igraph)
+if(!require(dplyr)) install.packages(dplyr)
+library(dplyr)
+```
+
+# Introduction
+
+The network we would like to work with is generated from the data available in the following [link](https://opendata.emtmadrid.es/Datos-estaticos/Datos-generales-(1)), that is an open data provided by the Madrid's public transport company (EMT). It shows information (for instance, the travel time) about trips with bicycles made by users.
+
+Specifically, the network was created from data of June 2021 (`Situación estaciones bicimad por día y hora de Junio de 2021` to generate the vertices and `Datos de uso Junio 2021` to generate the links). Due to the fact that there are more than 400,000 trips, we have aggregated this data summarizing in two new fields: mean travel time and number of trips from each pair vertices. Afterwards, we have selected randomly just 10,000 observations to create the igraph object (identified as _bicimad_). All of these objects are available in the "bici-mad.RData" file.
+
+```{r}
+stations <- lapply(readLines("data-stations-202106.json"), fromJSON, flatten = TRUE)
+stations <- stations[[1]]$stations
+stations <- stations[, c(13, 10, 5, 8, 11)]
+colnames(stations)[which(names(stations) == "id")] <- "name"
+stations <- subset(stations, stations$name != 123)
+stations <- subset(stations, stations$name != 124)
+rownames(stations) <- stations$name
+stations <- stations %>%
+  mutate(
+    latitude = as.numeric(latitude),
+    longitude = as.numeric(longitude))
+
+json_raw   <- readr::read_file("data-users-202106.json")
+json_lines <- unlist(strsplit(json_raw, "\\n"))
+trips <- do.call(rbind, mclapply(json_lines, 
+                                 FUN = function(x){as.data.frame(jsonlite::fromJSON(x))}))
+colnames(trips)[which(names(trips) == "idunplug_station")] <- "from"
+colnames(trips)[which(names(trips) == "idplug_station")] <- "to"
+trips <- subset(trips, trips$to != 2009 & trips$from != 2009)
+trips <- trips[,-c(1,2, 3, 5)]
+trips <- trips[, c(3, 5, 2, 1, 4, 6, 7)]
+trip_summarize <- trips %>% 
+  group_by(from, to) %>%  
+  summarise(mean_travel_time = mean(travel_time), weight = n(), .groups = "keep")
+
+
+indexes <- sample(nrow(trip_summarize), size=10000)
+bicimad <- graph_from_data_frame(d=trip_summarize[indexes,], directed=T, vertices=stations)
+
+save.image("bicimad-data.RData")
+```
+
+# Main description of the network
+
+First of all, it is suitable to explain the main characteristics of the network we will work with. The *igraph* object which contains the network is loaded as well as a brief summary of it.
+
+```{r}
+load("bicimad-data.RData")
+bicimad
+```
+
+As we mentioned above, the network has been built from two different datasets. The data included in them contains several variables which will define the vertexes and the edges of the network. These are the attributes of all the **directed** network:
+
+ - *name (v/c)*: Base Station Code (v), which is a character (c).
+ - *address (v/c)*: The specific address in which the station can be found (v), which is a character (c).
+ - *total_bases (v/n)*: Number of station bases (v), which is a number (n).
+ - *longitude (v/n)*: Longitude of the station in WGS84 format (v), which is a number (n).
+ - *latitude (v/n)*: Latitude of the station in WGS84 format, which is a number (n).
+ - *mean_travel_time (e/n)*: Average time of the entire trip (e), which is a number (n).
+ - *weight (e/n)*: The weight of the edges, i.e. the number of different trips between two same pair-vertices (e), which is a number (n).
+
+The letters *v* and *e* refer to the vertices and the edges of the network, respectively. On the other hand, the letters *c* and *n* refer to the type of variable value (*c* if the type is character and *n* if it is numerical).
+
+Since this network has been created joining different datasets, there is no name and author of the graph. Hence, we set these two attributes:
+
+```{r}
+bicimad$name <- "BiciMAD"
+bicimad$Author <- "Ignacio Almodóvar, Javier Muñoz Flores & Luis Ángel Rodríguez García"
+graph_attr(bicimad)
+```
+
+The next point is to describe the vertices of the network. In particular, we are interested in knowing how many vertices the network contains, which are these vertices and the attributes associated.
+
+```{r}
+gorder(bicimad)
+```
+
+The number of vertices, i.e. the **order of the network**, is 262. 
+
+```{r}
+vertex_attr_names(bicimad)
+head(V(bicimad)$"name")
+head(V(bicimad)$"address")
+head(V(bicimad)$"total_bases")
+head(V(bicimad)$"longitude")
+head(V(bicimad)$"latitude")
+```
+
+The previous two outputs show the label of the vertices attributes as well as the values which they contain. Specifically, the attributes are:
+
+ - The name of the station in the network.
+ - The address of the station in the network.
+ - The number of station bases in the network, that is the maximum number of bicycles.
+ - The latitude and longitude where the stations are.
+ 
+Now, we proceed with the same pipeline to find the number of edges and the attributes which they contain. 
+
+```{r}
+gsize(bicimad)
+```
+
+The number of edges, i.e. the **size of the network** is 10000. This value is precisely the number of random observations we have selected from the trips dataset.  
+
+Now, we show the edges themselves and their attributes.
+
+```{r}
+E(bicimad)
+head(as_edgelist(bicimad))
+edge_attr_names(bicimad)
+head(E(bicimad)$"mean_travel_time")
+head(E(bicimad)$"weight")
+```
+
+The previous outputs show the labels of the edges attributes as well as the values which they contain. Specifically, the attributes are:
+
+ - The average time of the bicycle trips between two stations.
+ - The number of different trips between two stations.
+ 
+An important point when dealing with networks is to check if it contains loops. In this case, it refers to bicycle trips in which the destination and the arrival are the same vertex. 
+
+```{r}
+if_loops <- E(bicimad)[which(which_loop(bicimad)==TRUE)]
+length(if_loops)
+```
+
+There are exactly 43 loops in the data. 
+
+To conclude this section, it is suitable to have a look at a basic visual representation of the graph.
+
+```{r}
+par(mar=c(0,0,0,0))
+plot.igraph(bicimad,vertex.size=8,edge.width=0.2,edge.arrow.size=0.3,
+            edge.arrow.width=1,vertex.label.cex=0.5)
+```
+
+It seems difficult to identify the presence of groups in the graph, since the stations are well distributed over the city. However, the graph plot is used to see the loops mentioned and the multiple connections between stations. However, a further graphical description of the graph will take place at the end of this first part.
+
+# Degree sequence and distribution of the network
+
+For a deep analysis of our **directed** network, it is appropriate to obtain the in, out and total degree sequence, that is:
+
+ - In-degree of a vertex $v \in V$ ($d_{v}^{in}$): Number of edges pointing in towards $v \in V$.
+ - Out-degree of a vertex $v \in V$ ($d_{v}^{out}$): Number of edges out from $v \in V$.
+ - Total degree of a vertex $v \in V$: $d_{v} = d_{v}^{in} + d_{v}^{out}$.
+
+```{r}
+deg_in <- degree(bicimad,mode="in")
+deg_out <- degree(bicimad,mode="out")
+deg_total <- degree(bicimad,mode="total")
+```
+
+In addition, we check that both the sum of the in-degree and the out-degree are equal to the size of the network. That is:
+
+$$
+\sum_{v=1}^{N}d_{v}^{in} = \sum_{v=1}^{N}d_{v}^{out} = L = 10000
+$$
+```{r}
+sum(deg_in) == sum(deg_out)
+sum(deg_out) == gsize(bicimad)
+```
+
+We also compute the average in and out degree of the network and check that the result is the same. Precisely, this value will be equal to the ratio of the size and the order of the network, since the network is directed.
+
+```{r}
+mean(deg_in)
+mean(deg_in) == mean(deg_out)
+round(mean(deg_in),5) == round(gsize(bicimad)/gorder(bicimad),5)
+```
+
+Let's compute the degree distribution in order to carry out a further characterization of the sequence. Because of the large number of observations of the data, i.e. a large value of L, it is suitable to represent this distribution through an histogram and a kernel density. We show the in, out and total degree distribution and we will see if there is any significant difference between them.
+
+
