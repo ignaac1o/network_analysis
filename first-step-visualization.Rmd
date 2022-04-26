@@ -30,31 +30,31 @@ load("bicimad-data.RData")
 ### Circular layout
 
 ```{r, fig.width=12, fig.height=12}
-plot.igraph(bicimad, layout=layout_in_circle, main="Bicimad network with circular layout", vertex.size=8, vertex.label.cex=0.6)
+plot.igraph(bicimad, layout=layout_in_circle, main="Bicimad network with circular layout", vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1, vertex.label.cex=0.5)
 ```
 
 ### Circular layout
 
 ```{r, fig.width=12, fig.height=12}
-plot.igraph(bicimad, layout=layout_as_star,main="Bicimad network with star layout", vertex.size=8, vertex.label.cex=0.6)
+plot.igraph(bicimad, layout=layout_as_star,main="Bicimad network with star layout", vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1, vertex.label.cex=0.5)
 ```
 
 ### Tree layout
 
 ```{r, fig.width=12, fig.height=12}
-plot.igraph(bicimad, layout=layout_as_tree, main="Bicimad network with tree layout", vertex.size=8, vertex.label.cex=0.6)
+plot.igraph(bicimad, layout=layout_as_tree, main="Bicimad network with tree layout", vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1, vertex.label.cex=0.5)
 ```
 
 ### Grid layout
 
 ```{r, fig.width=15, fig.height=15}
-plot.igraph(bicimad, layout=layout_on_grid, main="Bicimad network with grid layout", vertex.size=8, vertex.label.cex=0.6)
+plot.igraph(bicimad, layout=layout_on_grid, main="Bicimad network with grid layout", vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1, vertex.label.cex=0.5)
 ```
 
 ### Sphere layout
 
 ```{r, fig.width=15, fig.height=15}
-plot.igraph(bicimad, layout=layout_on_sphere, main="Bicimad network with sphere layout", vertex.size=8, vertex.label.cex=0.6)
+plot.igraph(bicimad, layout=layout_on_sphere, main="Bicimad network with sphere layout", vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1, vertex.label.cex=0.5)
 ```
 
 ### Chord diagram
