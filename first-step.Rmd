@@ -17,6 +17,10 @@ if(!require(igraph)) install.packages(igraph)
 library(igraph)
 if(!require(dplyr)) install.packages(dplyr)
 library(dplyr)
+if(!require(RColorBrewer)) install.packages(RColorBrewer)
+library(RColorBrewer)
+if(!require(GISTools)) install.packages(GISTools)
+library(GISTools)
 ```
 
 # Introduction
@@ -260,7 +264,7 @@ which(table(strength(bicimad))==2)
 
 However, we can also see that the most repeated ones are those with 286, 341, 386, 454, 475 and 495 degrees, which is the peak of the plot and they are repeated three times.
 
-## Identify relevant nodes and explain what information seems to be useful for understanding the network
+# Identify relevant nodes and explain what information seems to be useful for understanding the network
 
 
 In previous section we have already calculated the degree of each node. However, for this analysis it might be more useful to know which node is the one with highest degree, i.e that place were more bikes are taken and left. This node will mean one of the most concurred places for taking bicycles. 
@@ -293,7 +297,7 @@ We can finally check whether our network is a multigraph or not. Without further
 is_simple(bicimad)
 ```
 
-## Is the graph connected? Obtain components, diameter, farther vertices,...
+# Is the graph connected? Obtain components, diameter, farther vertices,...
 
 Now, to know if every vertex is reachable from every other i.e. being connected, we can take this function.
 
@@ -333,4 +337,163 @@ farthest_vertices(bicimad,weights=trip_summarize$mean_travel_time[indexes])
 
 Now this result makes much sense as this nodes corresponds to "Calle de Pedro Rico n4" and "Calle de la Hacienda de pavones n342". Checking the distance in Google Maps we can see that the fastest path is 13.3 km long and might take over 47 minutes.
 
+# Graphical representations of the network
 
+First all, we are going to create some variables that will help us to decorate the graph plots.
+
+Let's start defining 5 different zones of the vertices based on the latitude and the longitude of each vertex. Every zone represents a geographical area of Madrid: northwest (`NW`), northeast (`NE`), center (`C`), southwest (`SW`) and southeast (`SE`). We are going to associated to each vertex its area.
+
+```{r}
+
+coordinates <- stations[,c(4,5)]
+longitude_quantiles <- quantile(as.numeric(stations$longitude), prob=c(.30,.70))
+latitude_quantiles <- quantile(as.numeric(stations$latitude), prob=c(.30,.70))
+
+areas <- ifelse(
+  Reduce("&", list(
+    as.numeric(stations$latitude) > latitude_quantiles[1], 
+    as.numeric(stations$latitude) < latitude_quantiles[2], 
+    as.numeric(stations$longitude) > longitude_quantiles[1], 
+    as.numeric(stations$longitude) < longitude_quantiles[2])), "C", 
+                ifelse(as.numeric(stations$longitude) >= longitude_quantiles[2], 
+                ifelse(as.numeric(stations$latitude) >= latitude_quantiles[2], 'NE', 'SE'),
+                ifelse(as.numeric(stations$latitude) >= latitude_quantiles[2], 'NW', 'SW')))
+V(bicimad)$area <- areas
+```
+
+Next step is to associate a specific color to each area, for this purpose we are going to use the color palette package called `RColorBrewer`.
+
+```{r}
+pal <- brewer.pal(n = 5, name = "Dark2")
+
+areas_unique_legend <- unique(areas)
+colors_areas_legend <- sapply(areas_unique_legend, function(x) 
+    ifelse(x=="NE", pal[1],
+           ifelse(x=="SE", pal[2], 
+                  ifelse(x=="SW", pal[3], 
+                         ifelse(x=="NW", pal[4], pal[5])))))
+areas_colors <- sapply(areas, function(x) 
+    ifelse(x=="NE", pal[1],
+           ifelse(x=="SE", pal[2], 
+                  ifelse(x=="SW", pal[3], 
+                         ifelse(x=="NW", pal[4], pal[5]))))
+    )
+
+```
+
+Next initial point before plotting the graph is about obtaining the 6 group of vertices with the highest degree:
+
+```{r}
+bicimad_degrees <- degree(bicimad)
+
+first_highest_degree_id <- as.numeric(names(which(bicimad_degrees==max(bicimad_degrees))))
+first_highest_degree_index <- which(bicimad_degrees==max(bicimad_degrees))
+
+bicimad_degrees[first_highest_degree_index] <- 0
+
+second_max_degree_val <- which(bicimad_degrees==max(bicimad_degrees))
+second_highest_degree_id <- as.numeric(names(second_max_degree_val))
+second_highest_degree_index <- second_max_degree_val
+
+bicimad_degrees[second_highest_degree_index] <- 0
+
+third_max_degree_val <- which(bicimad_degrees==max(bicimad_degrees))
+third_highest_degree_id <- as.numeric(names(third_max_degree_val))
+third_highest_degree_index <- third_max_degree_val
+
+bicimad_degrees[third_highest_degree_index] <- 0
+
+forth_max_degree_val <- which(bicimad_degrees==max(bicimad_degrees))
+forth_highest_degree_id <- as.numeric(names(forth_max_degree_val))
+forth_highest_degree_index <- forth_max_degree_val
+
+bicimad_degrees[forth_highest_degree_index] <- 0
+
+five_max_degree_val <- which(bicimad_degrees==max(bicimad_degrees))
+five_highest_degree_id <- as.numeric(names(five_max_degree_val))
+five_highest_degree_index <- five_max_degree_val
+
+bicimad_degrees[five_highest_degree_index] <- 0
+
+six_max_degree_val <- which(bicimad_degrees==max(bicimad_degrees))
+six_highest_degree_id <- as.numeric(names(six_max_degree_val))
+six_highest_degree_index <- six_max_degree_val
+
+bicimad_degrees[six_highest_degree_index] <- 0
+
+six_vertices_most_degree <- c(first_highest_degree_id, second_highest_degree_id,
+                              third_highest_degree_id, forth_highest_degree_id,
+                              five_highest_degree_id, six_highest_degree_id)
+six_vertices_most_degree_index <- c(first_highest_degree_index, second_highest_degree_index,
+                              third_highest_degree_index, forth_highest_degree_index,
+                              five_highest_degree_index, six_highest_degree_index)
+```
+
+Let's beginning with one of the most accurate simple graph layout we have identified, even though these kind of layouts are not good for large networks.
+
+We illustrate this with the tree layout, selecting as the root node the one with the highest degree (calculated at the beginning of this point), the vertex identified with the number 169.
+
+```{r, fig.width=12, fig.height=12, fig.align='center'}
+plot.igraph(bicimad, 
+            layout=layout_as_tree(bicimad, root=six_vertices_most_degree[1]), 
+            main="Bicimad network with tree layout", 
+            vertex.size=4, 
+            edge.arrow.size=0.3, 
+            edge.arrow.width=1, 
+            vertex.label.cex=0.7)
+```
+
+We can improve this graph plot adding the associated zone colors to each station. 
+
+```{r, fig.width=12, fig.height=12, fig.align='center'}
+V(bicimad)$color <- areas_colors
+plot.igraph(bicimad, 
+            layout=layout_as_tree(bicimad, root=six_vertices_most_degree[1]), 
+            main="Bicimad network with tree layout", 
+            vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, 
+            edge.arrow.width=1, vertex.label.cex=0.5)
+
+legend('topright', legend=unique(areas), fill=colors_areas_legend, col=colors_areas_legend)
+```
+
+In this last plot, we have seen that the station with the highest degree is located in the southwest area of Madrid. We can see as well that the right 2nd and the left-center 3rd levels of the tree are those ones with the more concentrated edges. Nevertheless, this kind of layouts is not so appropriate due to the fact that the graph is large and it contains cycles.
+
+We have tried other simple layouts but none provides good results. It is worthy to say that the *Chord diagram* was not useful and it had a bad computationally performance.
+
+The next graph layout we are going to present belongs to those ones that are based on maximizing a energy function. In our particular example, we have used the *Fruchtermann and Reingold* layout:
+
+```{r, fig.width=12, fig.height=12, fig.align='center'}
+plot.igraph(bicimad, layout=layout_with_fr, main="Bicimad network with Fruchterman-Reingold layout", vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1, vertex.label.cex=0.5)
+legend('topright', legend=unique(areas), fill=colors_areas_legend, col=colors_areas_legend)
+```
+
+We have given this graph layout as an example because it is curious how the optimization of the objective function provides results really valuable. Thanks to the colored vertexes, we have realized that the zone areas are properly clustered. This means, for example, that those stations located in the center are surrounded by the rest of the stations, therefore located in the middle of the graph. Multidimensional scaling layout has done a well job clustering the vertexes but not as clear as this method that is the reason we have considered it as illustration. 
+
+At last but not least, we are going to introduce the graph chart that we have chosen as the best possible representation with the methods that we have learnt. This graph is displayed using a custom layout created with the function `layout.norm` which allows to rescale coordinates linearly to be within given bound, in our case the latitude and longitude. 
+
+Other things we are going to do in order to provide a proper visualization are about to represent as a square with its color more transparent those vertexes with the highest degree, previously calculated and color the edges with the same colors as the vertex where they come from.
+
+In this last chart that is show below, we see that arrows of all different colors are in many of the vertexes. Nevertheless, as it is expected, it is more likely to have arrows of edges from vertexes of surrounded zone areas. For instance, the node 269 does not have any edge from the southeast area of Madrid. 
+
+It does make sense as well that the nodes of the center of the city have most of them arrows which come from vertexes of all other areas, for instance, the station with the highest degree, identified as 169, contains edges from all other geographical areas. 
+
+It is possible to see some trips from and to the same station, for example, in case of the station identified with the id 172 which is located in the northeast area.
+
+The vertexes with the highest degree are represented with square shapes and they are mainly situated in the center of the graph.
+
+We conclude that the graph is very well connected therefore there is not any isolated vertex. We have seen that many of the trips that start in a specific area ends in the same area or in adjacent areas and that the vertexes with the highest degree are located approximately in the center of the graph.
+
+```{r, fig.width=12, fig.height=12, fig.align='center'}
+V(bicimad)$shape <- "circle"
+V(bicimad)[six_vertices_most_degree_index]$shape <- "square"
+E(bicimad)$color <- tail_of(bicimad, E(bicimad))$color
+V(bicimad)[six_vertices_most_degree_index]$color <- 
+  add.alpha(areas_colors[six_vertices_most_degree_index], .6)
+plot.igraph(bicimad, 
+            layout = layout.norm(as.matrix(coordinates)),
+            main="Bicimad network with custom layout using the latitude and the longitude",
+            vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1,
+            vertex.label.cex=0.5)
+legend('topright', legend=unique(areas), fill=colors_areas_legend, 
+       col=colors_areas_legend)
+```

@@ -44,6 +44,13 @@ areas <- ifelse(
                 ifelse(as.numeric(stations$latitude) >= latitude_quantiles[2], 'NE', 'SE'),
                 ifelse(as.numeric(stations$latitude) >= latitude_quantiles[2], 'NW', 'SW')))
 
+areas_unique <- unique(areas)
+colors_areas <- sapply(areas_unique, function(x) 
+    ifelse(x=="NE", pal[1],
+           ifelse(x=="SE", pal[2], 
+                  ifelse(x=="SW", pal[3], 
+                         ifelse(x=="NW", pal[4], pal[5])))))
+
 # NE: "#1B9E77" | SE: "#D95F02" | SW: "#7570B3" | NW: "#E7298A" | C:  "#66A61E"
 V(bicimad)$area <- areas
 V(bicimad)$color <- sapply(areas, function(x) 
@@ -52,6 +59,8 @@ V(bicimad)$color <- sapply(areas, function(x)
                   ifelse(x=="SW", pal[3], 
                          ifelse(x=="NW", pal[4], pal[5]))))
     )
+legend('topright', legend=unique(areas), fill=colors_areas, col=colors_areas)
+
 E(bicimad)$color <- tail_of(bicimad, E(bicimad))$color
 bicimad <- delete_vertex_attr(bicimad, 'color')
 ```
@@ -77,13 +86,15 @@ plot.igraph(bicimad, layout=layout_as_star,main="Bicimad network with star layou
 ### Tree layout
 
 ```{r, fig.width=12, fig.height=12}
-plot.igraph(bicimad, layout=layout_as_tree(bicimad, root=5, mode='in'), main="Bicimad network with tree layout", vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1, vertex.label.cex=0.5)
+par(mar=c(0,0,0,0))
+E(bicimad)$width <- round(log(E(bicimad)$weight)*2)+1
+plot.igraph(bicimad, layout=layout_as_tree(bicimad, root=5, mode='in'), main="Bicimad network with tree layout", vertex.size=4, edge.arrow.size=0.3, edge.arrow.width=1, vertex.label.cex=0.5)
 ```
 
 ### Grid layout
 
 ```{r, fig.width=15, fig.height=15}
-plot.igraph(bicimad, layout=layout_on_grid, main="Bicimad network with grid layout", vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1, vertex.label.cex=0.5)
+plot.igraph(bicimad, layout=layout_on_grid, main="Bicimad network with grid layout", vertex.size=4, edge.arrow.size=0.3, edge.width=0.4, edge.arrow.width=1, vertex.label.cex=0.5)
 ```
 
 ### Sphere layout
@@ -110,31 +121,31 @@ plot.igraph(bicimad, layout=layout_with_dh, main="Bicimad network with Davidson-
 ### Fruchterman-Reingold layout
 
 ```{r, fig.width=15, fig.height=15}
-plot.igraph(bicimad, layout=layout_with_fr, main="Bicimad network with Fruchterman-Reingold layout", vertex.size=8, vertex.label.cex=0.6)
+plot.igraph(bicimad, layout=layout_with_fr, main="Bicimad network with Fruchterman-Reingold layout", vertex.size=4, vertex.label.cex=0.6)
 ```
 
 ### GEM force-directed layout
 
 ```{r, fig.width=15, fig.height=15}
-plot.igraph(bicimad, layout=layout_with_gem, main="Bicimad network with GEM force-directed layout", vertex.size=8, vertex.label.cex=0.6)
+plot.igraph(bicimad, layout=layout_with_gem, main="Bicimad network with GEM force-directed layout", vertex.size=4, vertex.label.cex=0.6)
 ```
 
 ### Graphopt layout
 
 ```{r, fig.width=15, fig.height=15}
-plot.igraph(bicimad, layout=layout_with_graphopt, main="Bicimad network with graphopt layout", vertex.size=8, vertex.label.cex=0.6)
+plot.igraph(bicimad, layout=layout_with_graphopt, main="Bicimad network with graphopt layout", vertex.size=4, vertex.label.cex=0.6)
 ```
 
 ### Kamada-Kawai layout
 
 ```{r, fig.width=15, fig.height=15}
-plot.igraph(bicimad, layout=layout_with_kk, main="Bicimad network with Kamada-Kawai layout", vertex.size=8, vertex.label.cex=0.6)
+plot.igraph(bicimad, layout=layout_with_kk, main="Bicimad network with Kamada-Kawai layout", vertex.size=4, vertex.label.cex=0.6)
 ```
 
 ## Graph layouts based on multidimensional scaling
 
 ```{r, fig.width=15, fig.height=15}
-plot.igraph(bicimad, layout=layout_with_mds, main="Bicimad network with multidimensional scaling layout", vertex.size=8, vertex.label.cex=0.6)
+plot.igraph(bicimad, layout=layout_with_mds, main="Bicimad network with multidimensional scaling layout", vertex.size=4, vertex.label.cex=0.6)
 ```
 
 # Decorating graph layouts
