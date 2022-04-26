@@ -27,6 +27,7 @@ Specifically, the network was created from data of June 2021 ("Situación estaci
 library(jsonlite)
 library(parallel)
 library(igraph)
+library(dplyr)
 
 stations <- lapply(readLines("data-stations-202106.json"), fromJSON, flatten = TRUE)
 stations <- stations[[1]]$stations
@@ -35,6 +36,10 @@ colnames(stations)[which(names(stations) == "id")] <- "name"
 stations <- subset(stations, stations$name != 123)
 stations <- subset(stations, stations$name != 124)
 rownames(stations) <- stations$name
+stations <- stations %>%
+  mutate(
+    latitude = as.numeric(latitude),
+    longitude = as.numeric(longitude))
 
 json_raw   <- readr::read_file("data-users-202106.json")
 json_lines <- unlist(strsplit(json_raw, "\\n"))
@@ -48,6 +53,7 @@ trips <- trips[, c(3, 5, 2, 1, 4, 6, 7)]
 trip_summarize <- trips %>% 
   group_by(from, to) %>%  
   summarise(mean_travel_time = mean(travel_time), weight = n(), .groups = "keep")
+
 
 indexes <- sample(nrow(trip_summarize), size=10000)
 bicimad <- graph_from_data_frame(d=trip_summarize[indexes,], directed=T, vertices=stations)
