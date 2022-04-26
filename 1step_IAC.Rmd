@@ -12,7 +12,6 @@ knitr::opts_chunk$set(echo = TRUE)
 library(igraph)
 library(igraphdata)
 load("bicimad-data.RData")
-plot.igraph(bicimad)
 ```
 
 ## Identify relevant nodes and explain what information seems to be useful for understanding the network
@@ -28,60 +27,25 @@ degree(bicimad,deg)
 vertex_attr(bicimad)$address[deg]
 ```
 
-We can see that the node 57 is the one with highest degree (233). This corresponds to the station located in "Calle Valencia 1". Indeed, this street belongs to the neighborhood of "lavapies", which is one place that has been growing up a lot in Madrid in the past years. Always visited by young people as it is more affordable and more "cool" these days. Therefore, we could say that the results obtained makes total sense.
+We can see that the node 169 is the one with highest degree (110). This corresponds to the station located in "Calle Manuel Silvela". Indeed, this street belongs to the neighborhood of "Trafalgar", which is a place frequently visited by young people, ergo people willing to take a bike as an option to get to that place easily and cheaply.
 
-We could also consider calculating the degree using the weights. However, our network does not include weights. Therefore the results obtained will be the same.
+Nevertheless, we have taken the degree without considering the weight. Therefore, that most frequent node correspond not to the most visited one but to the most diverse one i.e that one were more people from different stations over Madrid come and go.
 
-```{r}
-table(strength(bicimad))
-graph_strength_distribution <- function (graph,cumulative=FALSE,...)
-{
-  if (!is.igraph(graph)) {
-    stop("Not a graph object")
-  }
-  cs <- graph.strength(graph,...)
-  hi <- hist(cs,-1:max(cs),plot=FALSE)$density
-  if (!cumulative) {
-    res <- hi
-  }
-  else {
-    res <- rev(cumsum(rev(hi)))
-  }
-  res
-}
-graph_strength_distribution(bicimad)
-```
-
+Now to see which node is really the most visited one we have to consider the weights.
 
 ```{r}
-graph_strength_distribution(bicimad)
-degree_distribution(bicimad)
+wdeg=strength(bicimad) %>% which.max()
+strength(bicimad,wdeg)
+vertex_attr(bicimad)$address[wdeg]
 ```
 
+We can now see that including the weights the most visited node is the number 132, visited 1653 times and corresponds to the address "Paseo de la Florida nº 8". This result makes also sense as that is a place were several points of interest are located, such us Pricipe Pio shopping center, the Manzanares river, the Real Palace and Plaza España, between many more.
 
-```{r}
-plot(0:max(strength(bicimad)),graph_strength_distribution(bicimad),
-     type="h",col="deepskyblue2",lwd=2,
-     main="Weighted degree distribution of karate network",
-     xlab="Degree",ylab="Frequency")
-points(0:max(strength(bicimad)),graph_strength_distribution(bicimad),pch=20)
-```
-
-Analyzing the frequencies plot, we can see that the degrees more repeated in our network are those between 50-100. However, we can also seen that the most repeated one is that with 52 degrees, which is the peak of the curve and it is repeated just once. We can see in the table that it is repeated 8 times, whereas those second most repeated are those with 6 times (76 and 84).
-
-```{r}
-which(table(degree(bicimad))==8)
-which(table(degree(bicimad))==6)
-```
-
-
-We can also check whether our network is a multigraph or not. Without further knowledge, the network might have loops, as leaving a bike on the same station where it has taken at first seems not only possible but very doable. Indeed we can see that it is a multigraph.
+We can finally check whether our network is a multigraph or not. Without further knowledge, the network might have loops, as leaving a bike on the same station where it has taken at first seems not only possible but very doable. Indeed we can see that it is a multigraph.
 
 ```{r}
 is_simple(bicimad)
 ```
-
-
 
 ## Is the graph connected? Obtain components, diameter, farther vertices,...
 
@@ -99,28 +63,29 @@ components(bicimad)
 
 Indeed the components as expected is the whole graph that we have been discussing above.
 
-Now, to know, which is the longest path between vertices, we can obtain its diameter
+Now, to know, which is the longest path between vertices, we can obtain its diameter. We could either do it considering the weights or not. However, as the weights in our network represents the number of times each link is repeated, we believe that it does not make any sense to compute the diameter considering the weights. Therefore we calculate them without the weights.
 
 ```{r}
-get_diameter(bicimad)
-diameter(bicimad)
+get_diameter(bicimad,weights=rep(1,gsize(bicimad)))
+diameter(bicimad,weights=rep(1,gsize(bicimad)))
 ```
 
-Now considering the weak case, we will see that the diameter is lower than the strong case.
+We can see that the longest ride possible for the network  without considering weights is going from "Puerta del Sol" to "Avenida de la Complutense n23" but passing through "Calle Desengaño n1" and "Avenida de Camilo José Cela n23" respectively. Also we can compute the farthest node, which will be the start and end point of the diameter before calculated.
 
 ```{r}
-get_diameter(bicimad,directed=FALSE)
-diameter(bicimad,directed=FALSE)
+farthest_vertices(bicimad,weights=rep(1,gsize(bicimad)))
 ```
 
+Checking this journey in Google maps, it says that there is a 5.5km distance between those two and it might take about 25 minutes to get there.
 
-And also the farthest vertice
+We can see that without further knowledge considering this trip as the longest one does not make much sense. Therefore we are going to consider weight for the network, but not the ones already associated with each link. We will use another attribute for the weights. We have computed the mean travel time for each link and this will indicate for each link on the network the mean journey time for going from one vertices to another.
 
 ```{r}
-farthest_vertices(bicimad)
+farthest_vertices(bicimad,weights=trip_summarize$mean_travel_time[indexes])
 ```
 
-So, the two stations that are furthest away are "Calle Camino de los Vinateros nº 28" and "Avenida de la Complutense". In fact, checking this journey in Google maps, it says that there is a 10km distance between those two and it might take about 40 minutes to get there.
+
+Now this result makes much sense as this nodes corresponds to "Calle de Pedro Rico n4" and "Calle de la Hacienda de pavones n342". Checking the distance in Google Maps we can see that the fastest path is 13.3 km long and might take over 47 minutes.
 
 
 
