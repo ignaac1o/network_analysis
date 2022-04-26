@@ -1,0 +1,190 @@
+---
+title: "First step of the project"
+subtitle: "Network Analysis"
+author: "Javier Muñoz Flores"
+date: "25/4/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Main description of the network
+
+First of all, it is suitable to explain the main characteristics of the network we will work with. The *igraph* object which contains the network is loaded as well as a brief summary of it.
+
+```{r}
+library(igraph)
+library(igraphdata)
+load("bicimad-data.RData")
+bicimad
+```
+
+As we mentioned in the first submission, the network has been built from two different dataset. The data included in them contains several variables which will define the vertexes and the edges of the network. These are the attributes of all the **directed** network:
+
+ - *name (v/c)*: Base Station Code (v), which is a character (c).
+ - *address (v/c)*: The specific address in which the station can be found (v), which is a character (c).
+ - *total_bases (v/n)*: Number of station bases (v), which is a number (n).
+ - *longitude (v/c)*: Longitude of the station in WGS84 format (v), which is a character (c).
+ - *latitude (v/c)*: Latitude of the station in WGS84 format, which is a character (c).
+ - *travel_time (e/n)*: Time of the entire trip (e), which is a number (n).
+ - *user_type (e/n)*: Type of user (1: annual subscriber, 2: casual users, 3: employers) (e), which is a number (n).
+ - *ageRange (e/n)*: Range of user age (e), which is a number (n).
+ - *unplug_hourTime (e/c)*: Specific hour time in which the bike was unplugged (e), which is a charcter (c).
+ - *zip_code (e/c)*: Zip code of the user (e), which is a character (c).
+
+The letters *v* and *e* refer to the vertices and the edges of the network, respectively. On the other hand, the letters *c* and *n* refer to the type of variable value (*c* if the type is character and *n* if it is numerical).
+
+Since this network has been created joining different dataset, there is no name and the author of the graph. Hence, we set these two attributes:
+
+```{r}
+bicimad$name <- "BiciMAD"
+bicimad$Author <- "Ignacio Almodóvar, Javier Muñoz Flores & Luis Ángel Rodríguez García"
+graph_attr(bicimad)
+```
+
+The next point is to describe the vertices of the network. In particular, we are interested in knowing how many vertices the network contains, which are these vertices and the attributes of them.
+
+```{r}
+gorder(bicimad)
+```
+
+The number of vertices, i.e. the **order of the network**, is 262. 
+
+```{r}
+vertex_attr_names(bicimad)
+head(V(bicimad)$"name")
+head(V(bicimad)$"address")
+head(V(bicimad)$"total_bases")
+head(V(bicimad)$"longitude")
+head(V(bicimad)$"latitude")
+```
+
+The previous two outputs show the label of the vertices attributes as well as the values which they contain. Specifically, the attributes are:
+
+ - The name of the station in the network.
+ - The address of the station in the network.
+ - The number of station bases in the network.
+ - The lattitude and longitude where the station are.
+ 
+Now, we proceed with the same pipeline to find the number of edges and the attributes which they contain. 
+
+```{r}
+gsize(bicimad)
+```
+The number of edges, i.e. the **size of the network** is 10000. This value is precisely the number of random observations we have selected in the first submission. 
+
+Now, we show the edges themselves and their attributes.
+
+```{r}
+E(bicimad)
+head(as_edgelist(bicimad))
+edge_attr_names(bicimad)
+head(E(bicimad)$"travel_time")
+head(E(bicimad)$"user_type")
+head(E(bicimad)$"ageRange")
+head(E(bicimad)$"unplug_hourTime")
+head(E(bicimad)$"zip_code")
+```
+The previous outputs show the labels of the edges attributes as well as the values which they contain. Specifically, the attributes are:
+
+ - The time of the entire bicycle trip.
+ - The type of user bicycle.
+ - The range of user age.
+ - The specific hour time in which the bike was unplugged.
+ - The zip code of the user.
+
+An important point when dealing with networks is to check if it contains loops. In this case, it refers to bicycle trips in which the destination and the arrival present the same vertex.
+
+```{r}
+if_loops <- E(bicimad)[which(which_loop(bicimad)==TRUE)]
+length(if_loops)
+```
+
+There are exactly 457 loops in the data. 
+
+To conclude this section, it is suitable to have a look at a basic visual representation of the graph.
+
+```{r}
+par(mar=c(0,0,0,0))
+plot.igraph(bicimad,vertex.size=8,edge.width=0.2,edge.arrow.size=0.3,
+            edge.arrow.width=1,vertex.label.cex=0.5)
+```
+
+It seems difficult to identify the presence of groups in the graph, since the stations are well distributed over the city. However, the graph serves to see the loops mentioned and the multiple connections between stations.
+
+# Degree sequence and distribution of the network
+
+For a deep analysis of our **directed** network, it is appropriate to obtain the in, out and total degree sequence, that is:
+
+ - In-degree of a vertex $v \in V$ ($d_{v}^{in}$): Number of edges pointing in towards $v \in V$.
+ - Out-degree of a vertex $v \in V$ ($d_{v}^{out}$): Number of edges out from $v \in V$.
+ - Total degree of a vertex $v \in V$: $d_{v} = d_{v}^{in} + d_{v}^{out}$.
+ 
+```{r}
+deg_in <- degree(bicimad,mode="in")
+deg_out <- degree(bicimad,mode="out")
+deg_total <- degree(bicimad,mode="total")
+head(deg_in)
+head(deg_out)
+head(deg_total)
+```
+
+In addition, since the graph is unweighted, we check that both the sum of the in-degree and the out-degree are equal to the size of the network. That is:
+
+$$
+\sum_{v=1}^{N}d_{v}^{in} = \sum_{v=1}^{N}d_{v}^{out} = L = 10000
+$$
+```{r}
+sum(deg_in) == sum(deg_out)
+sum(deg_out) == gsize(bicimad)
+```
+We also compute the average in and out degree of the network and check that the result is the same. Precisely, this value will be equal to the ratio of the size and the order of the network, since the network is directed.
+
+```{r}
+mean(deg_in)
+mean(deg_in) == mean(deg_out)
+mean(deg_in) == gsize(bicimad)/gorder(bicimad)
+```
+Let's compute the degree distribution in order to carry out a further characterization of the sequence. Because of the large number of observations of the data, i.e. a large value of L, it is suitable to represent this distrubtion through an histogram and a kernel density. We show the in, out and total degree distribution and we will see if there is any significant difference between them.
+
+```{r}
+par(mfrow=c(1,2),mar=c(5,4,4,2)+0.1)
+hist(degree(bicimad,mode="in"),
+     freq=FALSE,col="deepskyblue2",
+     main="In degree distribution of BiciMAD network",
+     xlab="In degree")
+plot(density(degree(bicimad,mode="in")),
+     lwd=3,col="deepskyblue2",
+     main="Kernel density of in degree distribution of BiciMAD network")
+```
+```{r}
+par(mfrow=c(1,2),mar=c(5,4,4,2)+0.1)
+hist(degree(bicimad,mode="out"),
+     freq=FALSE,col="deepskyblue2",
+     main="Out degree distribution of BiciMAD network",
+     xlab="Out degree")
+plot(density(degree(bicimad,mode="out")),
+     lwd=3,col="deepskyblue2",
+     main="Kernel density of out degree distribution of BiciMAD network")
+```
+```{r}
+par(mfrow=c(1,2),mar=c(5,4,4,2)+0.1)
+hist(degree(bicimad,mode="total"),
+     freq=FALSE,col="deepskyblue2",
+     main="Total degree distribution of BiciMAD network",
+     xlab="Total degree")
+plot(density(degree(bicimad,mode="total")),
+     lwd=3,col="deepskyblue2",
+     main="Kernel density of total degree of BiciMAD network")
+```
+
+We notice that the distribution is similar for al the cases. It means that there are approximately the same number of users that plug and unplug the bicycle in all the stations.
+
+Furthermore, we can note that the degree distribution is slightly positive skewed for the three cases. Hence, there are some areas where the use of bicycles is high, i.e. there are some stations which present a high activity.
+
+
+
+
+
