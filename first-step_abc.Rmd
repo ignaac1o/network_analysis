@@ -156,6 +156,7 @@ plot(density(degree(bicimad,mode="in")),
      lwd=3,col="deepskyblue2",
      main="Kernel density of in degree distribution of BiciMAD network")
 ```
+
 ```{r}
 par(mfrow=c(1,2),mar=c(5,4,4,2)+0.1)
 hist(degree(bicimad,mode="out"),
@@ -166,6 +167,7 @@ plot(density(degree(bicimad,mode="out")),
      lwd=3,col="deepskyblue2",
      main="Kernel density of out degree distribution of BiciMAD network")
 ```
+
 ```{r}
 par(mfrow=c(1,2),mar=c(5,4,4,2)+0.1)
 hist(degree(bicimad,mode="total"),
@@ -180,6 +182,7 @@ plot(density(degree(bicimad,mode="total")),
 We notice that the distribution is similar for all the cases. It means that there are approximately the same number of users that plug and unplug the bicycle in all the stations.
 
 Furthermore, we can note that the degree distribution is slightly positive skewed for the three cases.
+
 
 
 

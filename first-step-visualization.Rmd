@@ -77,7 +77,7 @@ plot.igraph(bicimad, layout=layout_as_star,main="Bicimad network with star layou
 ### Tree layout
 
 ```{r, fig.width=12, fig.height=12}
-plot.igraph(bicimad, layout=layout_as_tree, main="Bicimad network with tree layout", vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1, vertex.label.cex=0.5)
+plot.igraph(bicimad, layout=layout_as_tree(bicimad, root=5, mode='in'), main="Bicimad network with tree layout", vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1, vertex.label.cex=0.5)
 ```
 
 ### Grid layout
