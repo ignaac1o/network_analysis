@@ -26,13 +26,10 @@ As we mentioned in the first submission, the network has been built from two dif
  - *name (v/c)*: Base Station Code (v), which is a character (c).
  - *address (v/c)*: The specific address in which the station can be found (v), which is a character (c).
  - *total_bases (v/n)*: Number of station bases (v), which is a number (n).
- - *longitude (v/c)*: Longitude of the station in WGS84 format (v), which is a character (c).
- - *latitude (v/c)*: Latitude of the station in WGS84 format, which is a character (c).
- - *travel_time (e/n)*: Time of the entire trip (e), which is a number (n).
- - *user_type (e/n)*: Type of user (1: annual subscriber, 2: casual users, 3: employers) (e), which is a number (n).
- - *ageRange (e/n)*: Range of user age (e), which is a number (n).
- - *unplug_hourTime (e/c)*: Specific hour time in which the bike was unplugged (e), which is a charcter (c).
- - *zip_code (e/c)*: Zip code of the user (e), which is a character (c).
+ - *longitude (v/n)*: Longitude of the station in WGS84 format (v), which is a number (n).
+ - *latitude (v/n)*: Latitude of the station in WGS84 format, which is a number (n).
+ - *mean_travel_time (e/n)*: Time of the entire trip (e), which is a number (n).
+ - *weight (e/n)*: The weight of the edges, i.e. the number of different trips between two vertices (e), which is a number (n).
 
 The letters *v* and *e* refer to the vertices and the edges of the network, respectively. On the other hand, the letters *c* and *n* refer to the type of variable value (*c* if the type is character and *n* if it is numerical).
 
@@ -66,13 +63,14 @@ The previous two outputs show the label of the vertices attributes as well as th
  - The name of the station in the network.
  - The address of the station in the network.
  - The number of station bases in the network.
- - The lattitude and longitude where the station are.
+ - The latitude and longitude where the station are.
  
 Now, we proceed with the same pipeline to find the number of edges and the attributes which they contain. 
 
 ```{r}
 gsize(bicimad)
 ```
+
 The number of edges, i.e. the **size of the network** is 10000. This value is precisely the number of random observations we have selected in the first submission. 
 
 Now, we show the edges themselves and their attributes.
@@ -82,11 +80,8 @@ E(bicimad)
 head(as_edgelist(bicimad))
 edge_attr_names(bicimad)
 head(E(bicimad)$"travel_time")
-head(E(bicimad)$"user_type")
-head(E(bicimad)$"ageRange")
-head(E(bicimad)$"unplug_hourTime")
-head(E(bicimad)$"zip_code")
 ```
+
 The previous outputs show the labels of the edges attributes as well as the values which they contain. Specifically, the attributes are:
 
  - The time of the entire bicycle trip.
@@ -102,7 +97,7 @@ if_loops <- E(bicimad)[which(which_loop(bicimad)==TRUE)]
 length(if_loops)
 ```
 
-There are exactly 457 loops in the data. 
+There are exactly 43 loops in the data. 
 
 To conclude this section, it is suitable to have a look at a basic visual representation of the graph.
 
@@ -112,7 +107,7 @@ plot.igraph(bicimad,vertex.size=8,edge.width=0.2,edge.arrow.size=0.3,
             edge.arrow.width=1,vertex.label.cex=0.5)
 ```
 
-It seems difficult to identify the presence of groups in the graph, since the stations are well distributed over the city. However, the graph serves to see the loops mentioned and the multiple connections between stations.
+It seems difficult to identify the presence of groups in the graph, since the stations are well distributed over the city. However, the graph serves to see the loops mentioned and the multiple connections between stations. However, a further graphical description of the graph will will take place later.
 
 # Degree sequence and distribution of the network
 
@@ -140,6 +135,7 @@ $$
 sum(deg_in) == sum(deg_out)
 sum(deg_out) == gsize(bicimad)
 ```
+
 We also compute the average in and out degree of the network and check that the result is the same. Precisely, this value will be equal to the ratio of the size and the order of the network, since the network is directed.
 
 ```{r}
@@ -147,6 +143,7 @@ mean(deg_in)
 mean(deg_in) == mean(deg_out)
 mean(deg_in) == gsize(bicimad)/gorder(bicimad)
 ```
+
 Let's compute the degree distribution in order to carry out a further characterization of the sequence. Because of the large number of observations of the data, i.e. a large value of L, it is suitable to represent this distrubtion through an histogram and a kernel density. We show the in, out and total degree distribution and we will see if there is any significant difference between them.
 
 ```{r}
@@ -180,9 +177,9 @@ plot(density(degree(bicimad,mode="total")),
      main="Kernel density of total degree of BiciMAD network")
 ```
 
-We notice that the distribution is similar for al the cases. It means that there are approximately the same number of users that plug and unplug the bicycle in all the stations.
+We notice that the distribution is similar for all the cases. It means that there are approximately the same number of users that plug and unplug the bicycle in all the stations.
 
-Furthermore, we can note that the degree distribution is slightly positive skewed for the three cases. Hence, there are some areas where the use of bicycles is high, i.e. there are some stations which present a high activity.
+Furthermore, we can note that the degree distribution is slightly positive skewed for the three cases.
 
 
 
