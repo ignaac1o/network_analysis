@@ -34,6 +34,7 @@ stations <- stations[, c(13, 10, 5, 8, 11)]
 colnames(stations)[which(names(stations) == "id")] <- "name"
 stations <- subset(stations, stations$name != 123)
 stations <- subset(stations, stations$name != 124)
+rownames(stations) <- stations$name
 
 json_raw   <- readr::read_file("data-users-202106.json")
 json_lines <- unlist(strsplit(json_raw, "\\n"))
@@ -44,9 +45,12 @@ colnames(trips)[which(names(trips) == "idplug_station")] <- "to"
 trips <- subset(trips, trips$to != 2009 & trips$from != 2009)
 trips <- trips[,-c(1,2, 3, 5)]
 trips <- trips[, c(3, 5, 2, 1, 4, 6, 7)]
+trip_summarize <- trips %>% 
+  group_by(from, to) %>%  
+  summarise(mean_travel_time = mean(travel_time), num_trips = n(), .groups = "keep")
 
-indexes <- sample(nrow(trips), size=10000)
-bicimad <- graph_from_data_frame(d=trips[indexes,], directed=T, vertices=stations)
+indexes <- sample(nrow(trip_summarize), size=10000)
+bicimad <- graph_from_data_frame(d=trip_summarize[indexes,], directed=T, vertices=stations)
 ```
 
 The chunk above contains the logic we have executed in order to define the objects available in the .RData file. 
