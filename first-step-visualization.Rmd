@@ -23,6 +23,45 @@ Load the database within the `bicimad-data.RData`file:
 load("bicimad-data.RData")
 ```
 
+First all, we are going to create 5 different zones of the vertices based on the latitude and the longitude of each vertex. Every zone represents a geographical area of Madrid: northwest (`NW`), northeast (`NE`), center (`C`), southwest (`SW`) and southeast (`SE`).
+
+```{r}
+library(dplyr)
+library(RColorBrewer)
+
+pal <- brewer.pal(n = 5, name = "Dark2")
+
+coordinates <- stations %>% select(c(4,5)) %>% 
+  mutate(
+    latitude = as.numeric(latitude),
+    longitude = as.numeric(longitude))
+longitude_quantiles <- quantile(as.numeric(stations$longitude), prob=c(.30,.70))
+latitude_quantiles <- quantile(as.numeric(stations$latitude), prob=c(.30,.70))
+areas <- ifelse(
+  Reduce("&", list(
+    as.numeric(stations$latitude) > latitude_quantiles[1], 
+    as.numeric(stations$latitude) < latitude_quantiles[2], 
+    as.numeric(stations$longitude) > longitude_quantiles[1], 
+    as.numeric(stations$longitude) < longitude_quantiles[2])), "C", 
+                ifelse(as.numeric(stations$longitude) >= longitude_quantiles[2], 
+                ifelse(as.numeric(stations$latitude) >= latitude_quantiles[2], 'NE', 'SE'),
+                ifelse(as.numeric(stations$latitude) >= latitude_quantiles[2], 'NW', 'SW')))
+# NE: "#1B9E77"
+# SE: "#D95F02"
+# SW: "#7570B3"
+# NW: "#E7298A"
+# C:  "#66A61E"
+V(bicimad)$area <- areas
+V(bicimad)$color <- sapply(areas, function(x) 
+    ifelse(x=="NE", pal[1],
+           ifelse(x=="SE", pal[2], 
+                  ifelse(x=="SW", pal[3], 
+                         ifelse(x=="NW", pal[4], pal[5]))))
+    )
+E(bicimad)$color <- tail_of(bicimad, E(bicimad))$color
+bicimad <- delete_vertex_attr(bicimad, 'color')
+```
+
 # Visualization of the network
 
 ## Simple graph layouts
@@ -112,38 +151,6 @@ plot.igraph(bicimad, layout=layout_with_mds, main="Karate network with Muldimens
 ```
 
 ```{r, fig.width=12, fig.height=12, results='hide'}
-library(dplyr)
-library(RColorBrewer)
-pal <- brewer.pal(n = 5, name = "Dark2")
-coordinates <- stations %>% select(c(4,5)) %>% 
-  mutate(
-    latitude = as.numeric(latitude),
-    longitude = as.numeric(longitude))
-longitude_quantiles <- quantile(as.numeric(stations$longitude), prob=c(.30,.70))
-latitude_quantiles <- quantile(as.numeric(stations$latitude), prob=c(.30,.70))
-areas <- ifelse(
-  Reduce("&", list(
-    as.numeric(stations$latitude) > latitude_quantiles[1], 
-    as.numeric(stations$latitude) < latitude_quantiles[2], 
-    as.numeric(stations$longitude) > longitude_quantiles[1], 
-    as.numeric(stations$longitude) < longitude_quantiles[2])), "C", 
-                ifelse(as.numeric(stations$longitude) >= longitude_quantiles[2], 
-                ifelse(as.numeric(stations$latitude) >= latitude_quantiles[2], 'NE', 'SE'),
-                ifelse(as.numeric(stations$latitude) >= latitude_quantiles[2], 'NW', 'SW')))
-# NE: "#1B9E77"
-# SE: "#D95F02"
-# SW: "#7570B3"
-# NW: "#E7298A"
-# C:  "#66A61E"
-V(bicimad)$area <- areas
-V(bicimad)$color <- sapply(areas, function(x) 
-    ifelse(x=="NE", pal[1],
-           ifelse(x=="SE", pal[2], 
-                  ifelse(x=="SW", pal[3], 
-                         ifelse(x=="NW", pal[4], pal[5]))))
-    )
-E(bicimad)$color <- tail_of(bicimad, E(bicimad))$color
-bicimad <- delete_vertex_attr(bicimad, 'color')
 plot.igraph(bicimad, layout = layout.norm(as.matrix(coordinates)),
             main="Bicimad network with custome layout using the latitude and the longitude",
             vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, edge.arrow.width=1,
