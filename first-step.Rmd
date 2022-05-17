@@ -693,11 +693,11 @@ Again, **Calle Manuel Silvela nº 20**, **Calle José Ortega y Gasset nº 4**, *
 ```{r}
 close_w_measure <- sort.int(closeness(bicimad,mode="all",normalized=TRUE,weights=1/E(bicimad)$weight)                           ,decreasing=TRUE,index.return=TRUE)
 
-close_W_total <- cbind("Weighted closenesses" = V(bicimad)$address[close_measure$ix][1:5])
+close_W_total <- cbind("Weighted closenesses" = V(bicimad)$address[close_w_measure$ix][1:5])
 knitr::kable(close_W_total)
 ```
 
-The weighted case shows also that **Calle Manuel Silvela nº 20**, **Calle José Ortega y Gasset nº 4** and **Calle Juan Bravo nº 50** are among the five most central stations.
+The weighted case shows also that **Plaza de la Cebada nº 16** and **Glorieta de Quevedo nº 5** are among the five most central stations.
 
 ### Betweenness
 
