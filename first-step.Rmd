@@ -3,7 +3,9 @@ title: 'Assignment: First Step'
 subtitle: 'Network Analysis - Master Statistics for Data Science'
 author: "Ignacio Almodóvar Cárdenas, Javier Muñoz Flores & Luis Ángel Rodríguez García"
 date: "20-04-2022"
-output: pdf_document
+output:
+  pdf_document:
+    toc: true
 ---
 
 ```{r setup, include=FALSE}
@@ -567,6 +569,7 @@ plot(degree_dist_pos-1,degree_dist[degree_dist_pos],log="xy",
 ```{r}
 log_deg_dist <- log(degree_dist[degree_dist_pos])[-1]
 log_deg <- log(degree_dist_pos-1)[-1]
+first_fit <- lm(log_deg_dist~log_deg)
 second_fit <- lm(log_deg_dist~log_deg,weights=1/first_fit$fitted.values^2)
 summary(second_fit)
 ```
@@ -607,6 +610,7 @@ plot(weighted_degree_dist_pos-1,
 ```{r}
 log_weighted_deg_dist <- log(weighted_degree_dist[weighted_degree_dist_pos])
 log_weighted_deg <- log(weighted_degree_dist_pos-1)
+first_fit <- lm(log_weighted_deg_dist~log_weighted_deg)
 second_fit <- lm(log_weighted_deg_dist~log_weighted_deg,weights=1/first_fit$fitted.values^2)
 summary(second_fit)
 ```
@@ -801,18 +805,19 @@ It is the only measure to determine the most important edges in the network. Let
 betw_edge <- sort.int(edge_betweenness(bicimad,directed=FALSE),
                             decreasing=TRUE,index.return=TRUE)
 E(bicimad)[betw_edge$ix[1:5]]
-ind_betw_edge <- V(bicimad)[which(V(bicimad)$name %in% c(208,80,90))]
-ind_betw_edge
+und_betw_edge <- V(bicimad)[which(V(bicimad)$name %in% c(268,80,90,250,58,61,38,250,57))]$address
+und_betw_edge
 ```
 
 ```{r}
 betw_edge_dir <- sort.int(edge_betweenness(bicimad,directed=TRUE),
                                 decreasing=TRUE,index.return=TRUE)
 E(bicimad)[betw_edge_dir$ix[1:5]]
-V(bicimad)$address[c(178,87, 79,165, 132, 77, 177, 256,120)]
+dir_betw_edge <- V(bicimad)[which(V(bicimad)$name %in% c(178,87,79,165,132,77,177,256,120,266))]$address
+dir_betw_edge
 ```
 
-We can see that there is large difference between edge relevance for both scenarios.
+We can see that there is a large difference between edge relevance for both scenarios and it does not appear any of the most central vertices calculated before.
 
 ## Analyze the local density of the network
 
