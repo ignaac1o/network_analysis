@@ -517,7 +517,7 @@ In order to obtain a further analysis of the network selected, it is suitable to
 
 ## Vertex characteristics
 
-In this section, we will focus on describing the most central vertices of the network, i.e. the most important bikes stations. For this purpose, on the one hand, we will analyse  the degree sequence in a deeper way and, on the other hand, we will obtain the different centrality measures.
+In this section, we will focus on describing the most central vertices of the network, i.e. the most important bikes stations. For this purpose, on the one hand, we will analyse the degree sequence in a deeper way and, on the other hand, we will obtain the different centrality measures.
 
 ### Vertex degree
 
@@ -556,25 +556,20 @@ The purpose of identifying the decay distribution of a network is for showing a 
 degree_dist <- degree_distribution(bicimad)
 max_degree_bicimad <- max(degree(bicimad))
 degree_dist_pos <- which(degree_dist!=0)
-```
 
-```{r}
 plot(degree_dist_pos-1,degree_dist[degree_dist_pos],log="xy",
      col=color_1,main="Log-log degree distribution",
      xlab="Log-Degree",ylab="Log-Frequency",pch=19)
 ```
 
+
 ```{r}
 log_deg_dist <- log(degree_dist[degree_dist_pos])[-1]
 log_deg <- log(degree_dist_pos-1)[-1]
-first_fit <- lm(log_deg_dist~log_deg)
-summary(first_fit)
-```
-
-```{r}
 second_fit <- lm(log_deg_dist~log_deg,weights=1/first_fit$fitted.values^2)
 summary(second_fit)
 ```
+
 
 ```{r}
 plot(log_deg,log_deg_dist,
@@ -611,14 +606,10 @@ plot(weighted_degree_dist_pos-1,
 ```{r}
 log_weighted_deg_dist <- log(weighted_degree_dist[weighted_degree_dist_pos])
 log_weighted_deg <- log(weighted_degree_dist_pos-1)
-first_fit <- lm(log_weighted_deg_dist~log_weighted_deg)
-summary(first_fit)
-```
-
-```{r}
 second_fit <- lm(log_weighted_deg_dist~log_weighted_deg,weights=1/first_fit$fitted.values^2)
 summary(second_fit)
 ```
+
 
 ```{r}
 plot(log_weighted_deg,log_weighted_deg_dist,
@@ -654,7 +645,7 @@ in_out_table <- cbind("In-degree central vertices" =
 knitr::kable(in_out_table)
 ```
 
-We can see that the most central stations are different using in-degree and out-degree. While the most important vertex for the in-degree case is **Calle Bustamante nº 1**, and it may be due to this station is near of Atocha, Mendez Álvaro and Embajadores, three important train and metro stations with quite connections with other stations of Madrid, the most central vertex for out-degree case is **Paseo de la Chopera nº 14**, located at the south of the network. Now, we take a look for the total-degree case, i.e. we do not take into account the directions.
+We can see that the most central stations are different using in-degree and out-degree. While the most important vertices for the in-degree case is **Calle Bustamante nº 1**, and it may be due to this station is near of Atocha, Mendez Álvaro and Embajadores, three important train and metro stations with quite connections with other stations of Madrid, the most central vertex for out-degree case is **Paseo de la Chopera nº 14**, located at the south of the network. Now, we take a look for the total-degree case, i.e. we do not take into account the directions.
 
 ```{r}
 sorted_degree_vertices <- sort.int(degree(bicimad, mode ="all"),decreasing=TRUE,index.return=TRUE)
@@ -821,3 +812,133 @@ V(bicimad)$address[c(178,87, 79,165, 132, 77, 177, 256,120)]
 ```
 
 We can see that there is large difference between edge relevance for both scenarios.
+
+## Analyze the local density of the network
+
+To Analyze it we will go through different steps and we will be getting different insights that will help at the end to have a better understanding of our network.
+
+### Calculate cliques
+
+We will first calculate the cliques of the network. As this is quite a big network, it takes a little bit of time to compute all the cliques. However, within less than a minute we can have them.
+
+```{r}
+bicimad_cliques=cliques(bicimad)
+table(sapply(bicimad_cliques,length))
+```
+
+As it can be seen there are 62 different cliques of size 7, which are significantly the ones with less cliques. Nevertheless it is still a lot of cliques, so showing its output will be not very useful at all. Also, we can see that size four is the most repeated one, with almost 90.000 different combinations. This output does not really give much useful information as there are repeated cliques. Therefore we are going to compute the maximal cliques to solve this problem.
+
+```{r}
+bicimad_max_cliques <- max_cliques(bicimad)
+table(sapply(bicimad_max_cliques,length))
+```
+
+We can see that the number of maximal cliques has been notoriously reduced compared to the standard cliques. We can see that for those of size 3 only 318 of 60444 are maximal. Also a big reduction was made for those of size 4 which only 15229 are maximal from 89616. Therefore we can say that the network is spare, not specially dense.
+
+### Graph coreness
+
+By definition, the k-core of a graph G is the maximal subgraph H $\subseteq$ G, such that $\delta(H)\geq k$. For this network there are 233 stations with k-core equal to 56, which is indeed a very large k-core. Keeping in mind that our network is form by 262 different stations, having in the maximal k-core with 233 of those stations means that the network is dense.
+
+```{r}
+bicimad_cores <- coreness(bicimad)
+max(bicimad_cores)
+```
+
+```{r}
+length(which(bicimad_cores==max(bicimad_cores)))
+```
+
+We can also plot the histogram of the k-cores in this network. As expected, The highest frequency is located in 56, whereas for he rest of k-cores the frequency is very low.
+
+```{r}
+hist(bicimad_cores,col="deepskyblue2",
+     main="Histogram for the k-cores in the bicimad network")
+```
+
+### Density
+
+We are now going to compute the density for the bicimad network so we can be sure about what is this network about.
+
+```{r}
+edge_density(bicimad)
+```
+
+As expected the density is only 0.14, which is a low number, meaning that the network has low density. This result was expected as the records taken for building this network were only for 1 month. If we would have taken a year, the network will be much dense than now.
+
+We can also check different nodes to see their density. However, as the network is fully connected, all the nodes have more or less the same density.
+
+```{r}
+ego_pedroRico <- make_ego_graph(bicimad,order=1,nodes=which(V(bicimad)$address=="Calle Pedro Rico nº 4"))
+edge_density(ego_pedroRico[[1]])
+
+ego_Ortega <- make_ego_graph(bicimad,order=1,nodes=which(V(bicimad)$address=="Calle José Ortega y Gasset nº 30"))
+edge_density(ego_Ortega[[1]])
+
+ego_Pavones <- make_ego_graph(bicimad,order=1,nodes=which(V(bicimad)$address=="Calle Hacienda de Pavones nº 342"))
+edge_density(ego_Pavones[[1]])
+
+
+ego_Pavones <- make_ego_graph(bicimad,order=1,nodes=which(V(bicimad)$address=="Puerta del Sol nº 1"))
+edge_density(ego_Pavones[[1]])
+
+ego_35 <- make_ego_graph(bicimad,order=1,nodes=V(bicimad)[35])
+edge_density(ego_35[[1]])
+
+ego_5 <- make_ego_graph(bicimad,order=1,nodes=V(bicimad)[5])
+edge_density(ego_5[[1]])
+
+ego_100 <- make_ego_graph(bicimad,order=1,nodes=V(bicimad)[100])
+edge_density(ego_100[[1]])
+```
+
+Indeed, we can see that those nodes that were part of the longest path calculated in the first step, "Pedro Rico" and "Hacienda de los Pavones" are the ones with higher density. It might look at first that the results obtained are not correct and that those stations with higher degree should be the more dense ones. However, that logic is indeed wrong as the calculation of the degree considered the weight and therefore the number of times that a link was repeated whereas for the density we are just counting if a node has a link or not with another.
+
+### transitivty
+
+Finally we can measure the locally density of the network in terms of the triangles among connected triplets. Within this, we can see that indeed our network is again not much dense even locally.
+
+```{r}
+transitivity(bicimad,type="global")
+```
+
+
+## Analyze the conenctivity of your network
+
+From the first step of the project we already mentioned that out network was fully connected. Therefore, the number of components in our network were indeed one, both for strong and weak cases. 
+
+```{r}
+comps_bicimad_strong <- igraph::components(bicimad,mode="strong")
+comps_bicimad_strong$no
+
+comps_weak_bicimad <- igraph::components(bicimad,mode="weak")
+comps_weak_bicimad$no
+```
+
+Even though there are no different components in our network we can still calculate the mean length of all the shortest paths in this main component.
+
+```{r}
+mean_distance(bicimad)
+```
+
+We can see that the mean length is 3, which isn't a very large number.
+
+To analyze the connectivity of our network we have to see both its vertex connectivity and edge. For that we will compute its k-vertex and k-edge connectivity. 
+
+```{r}
+vertex_connectivity(bicimad)
+edge_connectivity(bicimad)
+```
+
+We can see that both edges and vertices are k-connected for a value of k=12, meaning that the removal of any subsets of vertices or edges of cardinally smaller than 12 leaves a subgraph that is connected.
+
+Therefore, for cuts of less than 12 nodes or edges the network will still be connected. That is its articulation point must be zero as no single vertex disconnects the graph. 
+
+```{r}
+art_bicimad <- articulation_points(bicimad)
+art_bicimad
+```
+
+And indeed, the minimum set of vertex to cut to disconnect the graph is 12, just as we mentioned before.
+
+
+
