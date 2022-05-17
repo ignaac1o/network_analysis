@@ -1,3 +1,11 @@
+---
+title: 'Assignment: First Step'
+subtitle: 'Network Analysis - Master Statistics for Data Science'
+author: "Ignacio Almodóvar Cárdenas, Javier Muñoz Flores & Luis Ángel Rodríguez García"
+date: "20-04-2022"
+output: pdf_document
+---
+
 
 ```{r}
 library(igraph)
@@ -8,7 +16,7 @@ bicimad
 
 ## Community detection
 
-We are going to evaluate whether subsets of vertices demostrate a cohesiveness with respect to the underlying relational patters.
+We are going to evaluate whether subsets of vertices demonstrate a cohesiveness with respect to the underlying relational patters.
 
 First, we need to define an undirected `bicimad` version due to many graph partitioning algorithms do not work with directed graphs.
 
@@ -19,11 +27,11 @@ sim_bicimad_undir <- simplify(bicimad_undir)
 
 As we will see later on, there are algorithms such as *optimal modularity* and *edge betweenenness* that they cannot be executed with large networks like the one we are working with.
 
-To assess the partition of a graph we have the modularity measure that quantifies the quality of a graph partition. Then, the more positive this value is the better the community detection results are.
+To assess the partition of a graph we have the modularity measure that quantifies the quality of a graph partition. Then, the more positive this value, the better the community detection results are.
 
 ### Fast greedy algorithm
 
-We avoid the first algorithm called *optimal modularity* since it is not recommended for large networks, then we are going to execute the simplification version of this high-computational cost algorithm called *fast greedy*.
+We avoid the algorithm called *optimal modularity* since it is not recommended for large networks, then we are going to execute the simplification version of this high-computational cost algorithm, called *fast greedy*.
 
 ```{r}
 bicimad_fg <- cluster_fast_greedy(sim_bicimad_undir)
@@ -41,18 +49,28 @@ knitr::kable(data_fg)
 ```
 
 
-```{r}
+```{r, fig.width=8, fig.height=8, fig.align='center'}
+coordinates <- stations[,c(4,5)]
+longitude_quantiles <- quantile(as.numeric(stations$longitude), prob=c(.30,.70))
+latitude_quantiles <- quantile(as.numeric(stations$latitude), prob=c(.30,.70))
 plot(bicimad_fg, sim_bicimad_undir, 
             layout = layout.norm(as.matrix(coordinates)),
             main="Bicimad network | Fast Greedy algorithm",
-            vertex.size=4, 
+            vertex.size=5, 
             edge.width=0.2, 
             edge.arrow.size=0, 
             edge.arrow.width=0,
             vertex.label.cex=0.5)
 ```
 
-It provides a clear interpretation, the clustering is made based on the geographical areas where a trip starts and ends in a way that maximizes the modularity. Therefore, the vast majority of the vertices within the southwest area (associated to the cluster in the bottom left of the graph visualization) are those which starts a trip in this area and ends the trip in the same geographical zone. You can appreciate for different four groups, that geometrically are located such as a diagonal, for example, the blue one goes from the west to the south, the red one goes from the north to the center-left, the purple from the east to the central south and the green from the center to the east.
+The graph partitioning in this case is formed by 4 groups, being the groups located in certain regions of Madrid city. Therefore, the vast majority of the vertices within the southwest area (associated to the cluster in the bottom left of the graph visualization) are those which starts a trip in this area and ends the trip in the same geographical zone. You can appreciate four different groups, that geometrically are located such as a diagonal, for example, the blue one goes from the west to the south, the red one goes from the north to the center-left, the purple from the central north to the central south and the green from the center to the east.
+
+```{r}
+barplot(bicimas_fg_subk, col="deepskyblue2",
+        main="Barplot of community sizes using Fast Greedy")
+```
+
+The subgraph with more vertices is the one coloured in red and associated with the value of 1. Then the 2 and 3 subgraphs colored with purple and light blue, respectively, that have more or less the same number of vertices. The forth cluster is the one with less vertices and it is associated with the gren color.
 
 ### Louvain algorithm
 
@@ -75,11 +93,11 @@ rownames(data_lo) <- c('Louvain')
 knitr::kable(data_lo)
 ```
 
-```{r}
+```{r, fig.width=8, fig.height=8, fig.align='center'}
 plot(bicimad_lo, sim_bicimad_undir, 
             layout = layout.norm(as.matrix(coordinates)),
             main="Bicimad network | Louvain algorithm",
-            vertex.size=4, 
+            vertex.size=5, 
             edge.width=0.2, 
             edge.arrow.size=0, 
             edge.arrow.width=0,
@@ -88,10 +106,16 @@ plot(bicimad_lo, sim_bicimad_undir,
 
 In this example, with a seed fixed of 2, we have obtained 3 different clusters. The green, the reed and the blue could be associated with the one that goes from the west to the south, from the east to the center and from the northeast to the northwest; respectively.
 
+```{r}
+barplot(bicimas_lo_subk, col="deepskyblue2",
+        main="Barplot of community sizes using Louvain")
+```
+
+All the three clusters have more or less the same number of vertices.
 
 ### Label progagation algorithm
 
-In the case of the label propagation algorithm, we can use as an input the directed original graph we have. This algorithm takes into account the communities of its neighbors. We are going to indicate the initial value of the vertex lab with the result of the previous algorithm (Louvain).
+In the case of the *label propagation* algorithm, we can use as an input the directed original graph we have. This algorithm takes into account the communities of its neighbors. We are going to indicate the initial value of the vertex lab with the result of the previous algorithm (*Louvain*).
 
 ```{r}
 bicimad_lp <- cluster_label_prop(bicimad, initial=as.vector(membership(bicimad_lo)))
@@ -108,18 +132,18 @@ rownames(data_lp) <- c('Label propagation')
 knitr::kable(data_lp)
 ```
 
-```{r}
+```{r, fig.width=8, fig.height=8, fig.align='center'}
 plot(bicimad_lp, sim_bicimad_undir, 
             layout = layout.norm(as.matrix(coordinates)),
             main="Bicimad network | Label propagation algorithm",
-            vertex.size=4, 
+            vertex.size=5, 
             edge.width=0.2, 
             edge.arrow.size=0, 
             edge.arrow.width=0,
             vertex.label.cex=0.5)
 ```
 
-As we can see in the results above, the quality of the partition is very poor since it is almost zero. The graph confirms it giving a cluster with just one vertex what it doesn't make so much sense. 
+As we can see in the results above, the quality of the partition is very poor since it is almost zero. The graph confirms it giving a cluster with just one vertex that it doesn't make so much sense. The address associated with the vertex 260 is *Calle Rodríguez Jaén nº 40*, located next to Chamartin train station. This group could be formed in that manner because edges colored in red are far away from the bike station.
 
 ### Label progagation algorithm
 
@@ -139,42 +163,42 @@ knitr::kable(data_wa)
 ```
 
 
-```{r}
+```{r, fig.width=8, fig.height=8, fig.align='center'}
 plot(bicimad_wa, sim_bicimad_undir, 
             layout = layout.norm(as.matrix(coordinates)),
             main="Bicimad network | Walktrap algorithm",
-            vertex.size=4, 
+            vertex.size=5, 
             edge.width=0.2, 
             edge.arrow.size=0, 
             edge.arrow.width=0,
-            vertex.label.cex=0.5)
+            vertex.label.cex=0.7)
 ```
 
-In this case, the number of clusters suggested are 7, although there are 4 groups that only contains one vertex. Notice that two of this clusters are difficult to see them, one of them is located in the bottom left with a color of clear yellow and the other is in the center of the graph with a dark blue color. It will  be interesting to know why these points are isolated in a cluster.
+In this case, the number of clusters suggested are 7, although there are 4 groups that only contains one vertex. Notice that two of these clusters are difficult to see them, one of them is located in the bottom left with a color of light yellow and the other is in the center of the graph with a dark blue color. It would  be interesting to know where these points are, then the light blue is located in *Plaza de Celenque nº 1*, the light purple is in *Calle Rodríguez Jaén nº 40*, the dark blue in *Paseo de la Castellana nº 4* and the orange one in *Calle Sierra Toledana nº 33*.
 
 ```{r}
 barplot(bicimas_wa_subk, col="deepskyblue2",
         main="Barplot of community sizes using Walktrap")
 ```
 
-So the cluster 2 is the one with more vertices, this could be the one colored in yellow in the graph visualization.
+So the cluster 2 is the one with more vertices, this must be the one colored in yellow in the graph visualization.
 
 ### Conclussion
 
-In the following table is represented the number of communities and the modularity for each of the method described above.
+The following table contains the number of communities and their modularity for each of the method described above.
 
-```{r}
+```{r echo=FALSE}
 summary_community_detection <- rbind(data_fg, data_lo, data_lp, data_wa)
 knitr::kable(summary_community_detection)
 ```
-As we can see in the figures, the method *label propagation* is not doing properly the partitioning since the modularity is close to zero. The best community detection method among others is the fast greedy because it has the largest modularity, the next one would be the Louvain algorithm.
+As we can see in the previous figures of the table, the method *label propagation* is not doing properly the partitioning since the modularity is close to zero. The best community detection method among others is the *fast greedy* because it has the largest modularity, the next one is the *Louvain* algorithm. The *fast greedy* choice makes sense. Despite the label propagation method result, there is a clear interpretation for all the remaining algorithm that is the clustering has been made based on the geographical areas where a trip starts and ends.
 
 
 ## Assortativity and mixing
 
 This is another point of view of understand the cohesion of a network. We proceed to evaluate this characteristic that quantifies the extent to which vertices may be partitioned according to them.
 
-```{r}
+```{r fig.align='center'}
 degree_bicimad <- igraph::degree(bicimad)
 bicimad_degrees <- matrix(NA,nrow=ecount(bicimad),ncol=2)
 edges_bicimad <- igraph::as_edgelist(bicimad)
