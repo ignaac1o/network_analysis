@@ -590,7 +590,7 @@ weighted_degree_dist <- graph_strength_distribution(bicimad)
 max_weighted_degree <- max(strength(bicimad))
 par(mar=c(5,4,4,2)+0.1)
 plot(0:max_weighted_degree,weighted_degree_dist,col=color_1,
-     main="Weighted degree distribution of karate network",
+     main="Weighted degree distribution ",
      xlab="Weighted degree",ylab="Frequency",type="h")
 points(0:max_weighted_degree,weighted_degree_dist,pch=20)
 ```
@@ -601,7 +601,7 @@ weighted_degree_dist_pos <- which(weighted_degree_dist!=0)
 ```{r}
 plot(weighted_degree_dist_pos-1,
      weighted_degree_dist[weighted_degree_dist_pos],
-     log="xy",col=color_1,main="Log-log weighted degree distribution of bicimad network",
+     log="xy",col=color_1,main="Log-log weighted degree distribution",
      xlab="Log-Weighted-Degree",ylab="Log-Frequency",pch=19)
 ```
 ```{r}
@@ -616,7 +616,7 @@ summary(second_fit)
 ```
 ```{r}
 plot(log_weighted_deg,log_weighted_deg_dist,
-     col=color_1,main="Log-log weighted degree distribution of karate network",
+     col=color_1,main="Log-log weighted degree distribution",
      xlab="Log-Weighted-Degree",ylab="Log-Frequency",pch=19)
 abline(second_fit$coefficients[1],second_fit$coefficients[2],col=color_2,lwd=2)
 ```
