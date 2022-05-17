@@ -31,12 +31,12 @@ bicimad_fg_k <- length(bicimad_fg)
 bicimas_fg_subk <- sizes(bicimad_fg)
 bicimad_fg_memb <- membership(bicimad_fg)
 bicimad_fg_mod <- modularity(bicimad_fg)
-```
-
-```{r}
 data_fg <- cbind(bicimad_fg_k, bicimad_fg_mod)
 colnames(data_fg) <- c('K', 'mod')
 rownames(data_fg) <- c('fast greedy')
+```
+
+```{r, echo=FALSE}
 knitr::kable(data_fg)
 ```
 
@@ -66,12 +66,12 @@ bicimad_lo_k <- length(bicimad_lo)
 bicimas_lo_subk <- sizes(bicimad_lo)
 bicimad_lo_memb <- membership(bicimad_lo)
 bicimad_lo_mod <- modularity(bicimad_lo)
-```
-
-```{r}
 data_lo <- cbind(bicimad_lo_k, bicimad_lo_mod)
 colnames(data_lo) <- c('K', 'mod')
 rownames(data_lo) <- c('Louvain')
+```
+
+```{r, echo=FALSE}
 knitr::kable(data_lo)
 ```
 
@@ -99,12 +99,12 @@ bicimad_lp_k <- length(bicimad_lp)
 bicimas_lp_subk <- sizes(bicimad_lp)
 bicimad_lp_memb <- membership(bicimad_lp)
 bicimad_lp_mod <- modularity(bicimad_lp)
-```
-
-```{r}
 data_lp <- cbind(bicimad_lp_k, bicimad_lp_mod)
 colnames(data_lp) <- c('K', 'mod')
 rownames(data_lp) <- c('Label propagation')
+```
+
+```{r, echo=FALSE}
 knitr::kable(data_lp)
 ```
 
@@ -129,12 +129,12 @@ bicimad_wa_k <- length(bicimad_wa)
 bicimas_wa_subk <- sizes(bicimad_wa)
 bicimad_wa_memb <- membership(bicimad_wa)
 bicimad_wa_mod <- modularity(bicimad_wa)
-```
-
-```{r}
 data_wa <- cbind(bicimad_wa_k, bicimad_wa_mod)
 colnames(data_wa) <- c('K', 'mod')
 rownames(data_wa) <- c('Walktrap')
+```
+
+```{r, echo=FALSE}
 knitr::kable(data_wa)
 ```
 
@@ -159,9 +159,36 @@ barplot(bicimas_wa_subk, col="deepskyblue2",
 
 So the cluster 2 is the one with more vertices, this could be the one colored in yellow in the graph visualization.
 
+### Conclussion
+
+In the following table is represented the number of communities and the modularity for each of the method described above.
+
+```{r}
+summary_community_detection <- rbind(data_fg, data_lo, data_lp, data_wa)
+knitr::kable(summary_community_detection)
+```
+As we can see in the figures, the method *label propagation* is not doing properly the partitioning since the modularity is close to zero. The best community detection method among others is the fast greedy because it has the largest modularity, the next one would be the Louvain algorithm.
+
+
 ## Assortativity and mixing
 
-We proceed to evaluate the certain measured vertex characteristics that quantifies the extent to which vertices may be partitioned according to them.
+This is another point of view of understand the cohesion of a network. We proceed to evaluate this characteristic that quantifies the extent to which vertices may be partitioned according to them.
+
+```{r}
+degree_bicimad <- igraph::degree(bicimad)
+bicimad_degrees <- matrix(NA,nrow=ecount(bicimad),ncol=2)
+edges_bicimad <- igraph::as_edgelist(bicimad)
+for (i in seq_len(ecount(bicimad))) {
+  bicimad_degrees[i,] <- degree_bicimad[edges_bicimad[i,]]
+}
+plot(bicimad_degrees, pch=19, 
+     col="deepskyblue2", 
+     main="Degree pairs for the bicimad network",
+     xlab="Degree", ylab="Degree")
+```
+
+In the previous scatter plot, we can see that vertices connects with others no matter the degree value they have. For example, the vertex with a small degree (approximately 10, in the horizontal bar) has edges to other vertex with degree approximately 40 and also with other with value 100. In contrast, vertex with highest degree connects with a vertex with approximately 50 and with other of 100 degree value.
+
 
 ```{r}
 assortativity <- assortativity_degree(bicimad, V(bicimad))
@@ -169,7 +196,7 @@ assortativity
 ```
 
 
-As we could expect due to the fact that each station is connected with others (without taking into account anything else), the network is neutral since the assortativity value is close to 0. Then the hubs connect with other hubs and with bike stations less used.
+As we could expect once we have evaluated the scatter plot and due to the fact that each station is connected more or less with others, the network is neutral since the assortativity value is -0.00797, being close to zero value.
 
 
 
