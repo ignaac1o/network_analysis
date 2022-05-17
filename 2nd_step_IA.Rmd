@@ -1,0 +1,149 @@
+---
+title: "2nd_step_IA"
+author: "Ignacio Almodóvar Cárdenas"
+date: '2022-05-14'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Download network
+
+```{r}
+library(igraph)
+library(igraphdata)
+load("bicimad-data.RData")
+plot.igraph(bicimad)
+```
+
+## Analyze wether your network is locaclly and/or locally dense
+
+### Calculate cliques
+
+```{r}
+bicimad_cliques=cliques(bicimad)
+table(sapply(bicimad_cliques,length))
+```
+
+As it can be seen there are 62 different cliques of size 7, which are significantly the ones with less cliques. Nevertheless it is still a lot of cliques, so showing its output will be not very useful at all. Also, we can see that size four is the most repeated one, with almost 90.000 different combinations. This output does not really give much useful information. Therefore we are going to compute the maximal cliques.
+
+```{r}
+bicimad_max_cliques <- max_cliques(bicimad)
+table(sapply(bicimad_max_cliques,length))
+```
+
+We can see that the number of maximal clicks has been notoriously reduced compared to the standard cliques. We can see that for those of size 3 only 318 of 60444 are maximal. Also a big reduction was made for those of size 4 which only 15229 are maximal from 89616. Therefore we can say that the network is spare, not specially dense.
+
+
+### Graph coreness
+
+By definition, the k-core of a graph G is the maximal subgraph H $\subseteq$ G, such that $\delta(H)\geq k$. For this network there are 233 stations with k-core equal to 56, which is indeed a very large k-core. Keeping in mind that our network is form by 262 different stations, having in the maximal k-core 233 of those stations means that the network is dense.
+
+```{r}
+bicimad_cores <- coreness(bicimad)
+max(bicimad_cores)
+```
+
+```{r}
+length(which(bicimad_cores==max(bicimad_cores)))
+```
+
+We can also plot the histogram of the k-cores in this network. As expected, The highest frequency is located in 56, whereas for he rest of k-cores the frequency is very low.
+
+```{r}
+hist(bicimad_cores,col="deepskyblue2",
+     main="Histogram for the k-cores in the bicimad network")
+```
+
+### Density
+
+We are now going to compute the density for the bicimad network so we can be sure about what is this network about.
+
+```{r}
+edge_density(bicimad)
+```
+
+As expected the density is only 0.14, which is a low number, meaning that the network has low density. This result was expected as the records taken for building this network were only for 1 month. I we would have taken a year, the network will be much dense than now.
+
+We can also check different nodes to see their density. However, as the network is fully connected, all the nodes have more or less the same density.
+
+```{r}
+ego_pedroRico <- make_ego_graph(bicimad,order=1,nodes=which(V(bicimad)$address=="Calle Pedro Rico nº 4"))
+edge_density(ego_pedroRico[[1]])
+
+ego_Ortega <- make_ego_graph(bicimad,order=1,nodes=which(V(bicimad)$address=="Calle José Ortega y Gasset nº 30"))
+edge_density(ego_Ortega[[1]])
+
+ego_Pavones <- make_ego_graph(bicimad,order=1,nodes=which(V(bicimad)$address=="Calle Hacienda de Pavones nº 342"))
+edge_density(ego_Pavones[[1]])
+
+
+ego_Pavones <- make_ego_graph(bicimad,order=1,nodes=which(V(bicimad)$address=="Puerta del Sol nº 1"))
+edge_density(ego_Pavones[[1]])
+
+ego_35 <- make_ego_graph(bicimad,order=1,nodes=V(bicimad)[35])
+edge_density(ego_35[[1]])
+
+ego_5 <- make_ego_graph(bicimad,order=1,nodes=V(bicimad)[5])
+edge_density(ego_5[[1]])
+
+ego_100 <- make_ego_graph(bicimad,order=1,nodes=V(bicimad)[100])
+edge_density(ego_100[[1]])
+```
+
+Indeed, we can see that those nodes that were part of the longest path calculated in the first step, "Pedro Rico" and "Hacienda de los Pavones" are the ones with higher density.
+
+### transitivty
+
+Finally we can measure the locally density of the network in terms of the triangles among connected triplets. Within this, we can see that indeed our network is again not much dense even locally.
+
+```{r}
+transitivity(bicimad,type="global")
+```
+
+
+## Analyze the conenctivity of your network
+
+From the first step of the project we already mentioned that out network was fully connected. Therefore, the number of components in our network were indeed one, both for strong and weak cases. 
+
+```{r}
+comps_bicimad_strong <- igraph::components(bicimad,mode="strong")
+comps_bicimad_strong$no
+
+comps_weak_bicimad <- igraph::components(bicimad,mode="weak")
+comps_weak_bicimad$no
+```
+
+Even though there are no different components in our network we can still calculate the mean lenght of all the shortest paths in this main component.
+
+
+```{r}
+mean_distance(bicimad)
+```
+
+
+To analyze the connectivity of our network we have to see both its vertex connectiviy and edge. For that we will compute its k-vertex and k-edge connectivity. 
+
+```{r}
+vertex_connectivity(sim_bicimad)
+edge_connectivity(sim_bicimad)
+```
+
+We can see that both edges and vertices are k-connected for a value of k=12, meaning that the removal of any subsets of vertices or edges of cardinally smaller than 12 leaves a subgraph that is connected.
+
+Therefore, for cuts of less than 12 nodes or edges the network will still be connected. That is its articulation point must be zero as no single vertex disconnects the graph. 
+
+```{r}
+art_bicimad <- articulation_points(bicimad)
+art_bicimad
+```
+
+And indeed, the minimum set of vertex to cut to disconnect the graph is 12, just as we mentioned before.
+
+```{r}
+vertex_cut = min_cut(bicimad) 
+vertex_cut
+```
+
