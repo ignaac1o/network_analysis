@@ -541,6 +541,7 @@ plot(0:max(degree(bicimad,mode="out")),degree_dist_out,col=color_1,
      xlab="Degree",ylab="Frequency",type="h")
 points(0:max(degree(bicimad,mode="out")),degree_dist_out,pch=20)
 ```
+
 In most cases, the in and out degree distribution of a directed graph are skewed to the right. It is because of most of the real life networks are sparse, i.e. the number of edges of the network is small compared with the maximum number that the network could contains.
 
 However, in our case the ratio between the number of edges $L$ and the maximum number of edges $\frac{N(N-1)}{2}$ is not as small as the majority of cases for both cases (in and out). Hence, the degree distribution for both cases is skewed to the left instead of skewed to the right (negative skewness). It is because our analysis is based on an entire month, so the trips during a day are accumulated since the first day of June up to the last one of it. Therefore, there will be an considerable number of vertices with a high degree. We can check this fact computing the ratio mentioned.
@@ -549,7 +550,7 @@ However, in our case the ratio between the number of edges $L$ and the maximum n
 ecount(bicimad)/(vcount(bicimad)*(vcount(bicimad)-1)/2)
 ```
 
-The purpose of identifying the decay distribution of a network is for showing a linear relationship between frequency and probabilities of degree by plotting them in log-scale. Thus, if the linear relationship exists it can suggest that the degree distribution follows a power-law density and it could be possible to fit a regression model. However, in our case neither the in-degree nor the out-degree distribution (even the total), after applying log-scale, suggests a negative linear effect, but a positive one, since the majority of the degrees are not small compared with the total. We plot what we have mentioned but only in terms of the degree distribution since it follows a similar distribution than in and out degree. 
+The purpose of identifying the decay distribution of a network is for showing a linear relationship between frequency and probabilities of degree by plotting them in log-scale. Thus, if the linear relationship exists it can suggest that the degree distribution follows a power-law density and it could be possible to fit a regression model. However, in our case neither the in-degree nor the out-degree distribution (even the total), after applying log-scale, suggests a negative linear effect, but a positive one, since the majority of the degrees are not small compared with the total. We plot what we have mentioned but only in terms of the degree distribution since it follows a similar distribution than in and out degree ones. 
 
 ```{r}
 degree_dist <- degree_distribution(bicimad)
@@ -581,9 +582,10 @@ plot(log_deg,log_deg_dist,
      xlab="Log-Degree",ylab="Log-Frequency",pch=19)
 abline(second_fit$coefficients[1],second_fit$coefficients[2],col=color_2,lwd=2)
 ```
+
 Hence, in our case it could be possible to fit a regression model $log (pd ) = c + \alpha log (d) + \epsilon$ in which the term $\alpha$ is positive instead of negative. However, the coefficient of determination $R^2$, which tells us how good is the fit, is very low. It is because, as we mentioned, our case does not contain the exponential effect that we can found in most cases.
 
-On the other hand, the analysis of the fit of a regression model for the weighted degree distribution is completely different. Here, there are more weights with lower degrees, therefore the slope will be negative and the trend will be descending.
+On the other hand, the analysis of the fit of a regression model for the weighted degree distribution is completely different. Here, there are more larger number of lower degrees, therefore the slope will be negative and the trend will be descending.
 
 ```{r}
 weighted_degree_dist <- graph_strength_distribution(bicimad)
@@ -594,6 +596,7 @@ plot(0:max_weighted_degree,weighted_degree_dist,col=color_1,
      xlab="Weighted degree",ylab="Frequency",type="h")
 points(0:max_weighted_degree,weighted_degree_dist,pch=20)
 ```
+
 ```{r}
 weighted_degree_dist_pos <- which(weighted_degree_dist!=0)
 ```
@@ -604,25 +607,29 @@ plot(weighted_degree_dist_pos-1,
      log="xy",col=color_1,main="Log-log weighted degree distribution",
      xlab="Log-Weighted-Degree",ylab="Log-Frequency",pch=19)
 ```
+
 ```{r}
 log_weighted_deg_dist <- log(weighted_degree_dist[weighted_degree_dist_pos])
 log_weighted_deg <- log(weighted_degree_dist_pos-1)
 first_fit <- lm(log_weighted_deg_dist~log_weighted_deg)
 summary(first_fit)
 ```
+
 ```{r}
 second_fit <- lm(log_weighted_deg_dist~log_weighted_deg,weights=1/first_fit$fitted.values^2)
 summary(second_fit)
 ```
+
 ```{r}
 plot(log_weighted_deg,log_weighted_deg_dist,
      col=color_1,main="Log-log weighted degree distribution",
      xlab="Log-Weighted-Degree",ylab="Log-Frequency",pch=19)
 abline(second_fit$coefficients[1],second_fit$coefficients[2],col=color_2,lwd=2)
 ```
+
 Nevertheless, there are a large difference between the values of the weighted degrees, so the fit is not so good ($R^2 < 0.1$).
 
-To conclude this section, in order to determine the most central vertices considering the degree, we have seen that in the simple degree case there are a high number of central vertices, since the distribution is skewed to the left. The opposite case takes place for weighted degrees, because of the $\alpha$ term is negative.
+To conclude this section, in order to determine the most central vertices considering the degree, we have seen that in the simple degree case there are a high number of central vertices, since the distribution is skewed to the left. The opposite case takes place for weighted degrees, because of the $\alpha$ term is negative, i.e. there a higher number of lower degrees.
 
 ## Centrality measures
 
@@ -647,7 +654,7 @@ in_out_table <- cbind("In-degree central vertices" =
 knitr::kable(in_out_table)
 ```
 
-We can see that the most central stations are different using in-degree and out-degree. While the most important vertex for the in-degree case is **Calle Bustamante nº 1** ,and it may be due to this station is near of Atocha, Mendez Álvaro and Embajadores, three important train and metro stations with quite connections with other stations of Madrid, the most central vertex for out-degree case is **Paseo de la Chopera nº 14**, located at the south of the network. Now, we take a look for the total-degree case, i.e. we do not take into account the directions.
+We can see that the most central stations are different using in-degree and out-degree. While the most important vertex for the in-degree case is **Calle Bustamante nº 1**, and it may be due to this station is near of Atocha, Mendez Álvaro and Embajadores, three important train and metro stations with quite connections with other stations of Madrid, the most central vertex for out-degree case is **Paseo de la Chopera nº 14**, located at the south of the network. Now, we take a look for the total-degree case, i.e. we do not take into account the directions.
 
 ```{r}
 sorted_degree_vertices <- sort.int(degree(bicimad, mode ="all"),decreasing=TRUE,index.return=TRUE)
@@ -655,7 +662,7 @@ total <- cbind("Total central vertices" = V(bicimad)$address[sorted_degree_verti
 knitr::kable(total)
 ```
 
-In this case, only one of the stations coincide with the outcome of the five most central vertices of out-degree. It means there are stations in which users take more bikes than others, and there are stations in which users leave more bikes than others. In particular, the most central vertices are **Calle Manuel Silvela nº 20** and **Calle José Ortega y Gasset nº 4** located at the centre of the network.
+In this case, only one of the stations coincide with the outcome of the five most central vertices of out-degree. It means there are stations in which users take more bikes than others, and there are stations in which users leave more bikes than others. In particular, the most central vertices are **Calle Manuel Silvela nº 20** and **Calle José Ortega y Gasset nº 4** located at the center of the network.
 
 Now, let's take a look at the most important vertices considering the weighted degree vertices. 
 
@@ -666,7 +673,7 @@ total_w <- cbind("Weighted central vertices" = V(bicimad)$address[sorted_w_degre
 knitr::kable(total_w)
 ```
 
-We can see that the most important vertices are different for the unweighted case. It means that the most repeated trips do not take place in the same stations than the most bikes are taken and left from. However, there is a station, **Glorieta de Quevedo nº 5**, which will be repeated for almost all the next measures. In addition, the station **Paseo de la Florida nº 8** is the most important in this case, and we notice that it is a station which is near of Príncipe Pío, an important place in Madrid because here is a train station which connects whith other places far from there and this bike station is a bit far away from other bike stations, what could be a reason for the large number of different trips (high weighted degree).
+We can see that the most important vertices are different for the unweighted case. It means that the most repeated trips do not take place in the same stations than the most bikes are taken and left from. However, there is a station, **Glorieta de Quevedo nº 5**, which will be repeated for almost all the next measures. In addition, the station **Paseo de la Florida nº 8** is the most important in this case, and we notice that it is a station which is near of Príncipe Pío, an important place in Madrid because here is a train station which connects with other places far from there and this bike station is a bit far away from other bike stations, what could be a reason for the large number of different trips (high weighted degree).
 
 ### Closenesses
 
@@ -688,6 +695,7 @@ close_measure <- sort.int(closeness(bicimad,mode="all",normalized=TRUE,weights=r
 close_total <- cbind("Total closenesses" = V(bicimad)$address[close_measure$ix][1:5])
 knitr::kable(close_total)
 ```
+
 Again, **Calle Manuel Silvela nº 20**, **Calle José Ortega y Gasset nº 4**, **Calle Juan Bravo nº 50** are among the five most important stations as in the degree measure for the undirected case. We take a look at the weighted undirected case:
 
 ```{r}
@@ -721,6 +729,7 @@ betw_w_measure <- sort.int(betweenness(bicimad,normalized=TRUE,directed=FALSE,we
 betw_w_total <- cbind("Weighted betwenesses" = V(bicimad)$address[betw_w_measure$ix][1:5])
 knitr::kable(betw_w_total)
 ```
+
 Here, **Glorieta de Quevedo nº 5** and **Plaza de la Cebada nº 16** are repeated again.
 
 ### Eigenvector
@@ -742,6 +751,7 @@ eigen_dir <- sort.int(eigen_centrality(bicimad,
 betw_total <- cbind("Undirected case" = V(bicimad)$address[eigen_un$ix][1:5], "Directed case" = V(bicimad)$address[eigen_dir$ix][1:5])
 knitr::kable(betw_total)
 ```
+
 For the undirected case, we see again the vertices which appear in the previous measures. However, for the directed case, there are new important stations like **Calle San Bernardo nº 85** and **Ronda de Atocha nº 2**. 
 
 ```{r}
@@ -755,6 +765,7 @@ eig_w_measure <- sort.int(eigen_centrality(bicimad,
 eig_w_total <- cbind("Weighted case" = V(bicimad)$address[eig_w_measure$ix][1:5])
 knitr::kable(eig_w_total)
 ```
+
 Again, there are important vertices which repeat: **Paseo de la Florida nº 8** and **Paseo de la Chopera nº 14**.
 
 ### Page rank 
@@ -798,7 +809,8 @@ It is the only measure to determine the most important edges in the network. Let
 betw_edge <- sort.int(edge_betweenness(bicimad,directed=FALSE),
                             decreasing=TRUE,index.return=TRUE)
 E(bicimad)[betw_edge$ix[1:5]]
-V(bicimad)$address[c(208,80,90,250,58,61,38,250,57)]
+ind_betw_edge <- V(bicimad)[which(V(bicimad)$name %in% c(208,80,90))]
+ind_betw_edge
 ```
 
 ```{r}
@@ -807,4 +819,5 @@ betw_edge_dir <- sort.int(edge_betweenness(bicimad,directed=TRUE),
 E(bicimad)[betw_edge_dir$ix[1:5]]
 V(bicimad)$address[c(178,87, 79,165, 132, 77, 177, 256,120)]
 ```
+
 We can see that there is large difference between edge relevance for both scenarios.
