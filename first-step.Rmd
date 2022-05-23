@@ -1156,20 +1156,6 @@ assortativity
 
 As we could expect once we have evaluated the scatter plot and due to the fact that each station is connected more or less with others, the network is neutral since the assortativity value is -0.00797, being close to zero value.
 
-## Number of communities
-
-### Classical random grph models
-
-### Generalized random graph models
-
-We will now create a generalized random model with same specs as the bicimad network
-
-```{r}
-set.seed(10)
-deg_bicimad <- degree(bicimad)
-G_karate <- sample_degseq(deg_bicimad,method="vl")
-G_karate
-```
 
 
 ## Check wheter your network has small world property using classical random graph models
