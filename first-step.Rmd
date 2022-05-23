@@ -1164,3 +1164,94 @@ As we could expect once we have evaluated the scatter plot and due to the fact t
 
 We will now create a generalized random model with same specs as the bicimad network
 
+```{r}
+set.seed(10)
+deg_bicimad <- degree(bicimad)
+G_karate <- sample_degseq(deg_bicimad,method="vl")
+G_karate
+```
+
+
+## Check wheter your network has small world property using classical random graph models
+
+For this step we will consider our network as a simple graphs, i.e., undirected and with no loops or multi-edges. Then we will generate a network with small world property using the Watts-Strogatz model. For that we will need to fix the order N, the number of neighbors r (which has de largest effect) and the rewiring probability p.
+
+```{r}
+bicimad_und=as.undirected(bicimad,mode = "collapse")
+```
+
+Therefore we will take a sample with 262 nodes (As the original bicimad network) and set the r as 40 neighbors, which is approximately close to the number of neighbors per node of the real network as we have seen through all the analysis.
+
+```{r}
+set.seed(10)
+SW_1 <- sample_smallworld(1,262,40,0.05)
+SW_1
+```
+
+Indeed we can see that the total number of links is 10480, which is pretty close to the 10000 that the real network has. We can also plot the degree distribution of the networt.
+
+```{r}
+par(mfrow=c(1,2))
+deg_SW_1 <- degree(SW_1)
+deg_dis_SW_1 <- degree_distribution(SW_1)
+plot(0:max(deg_SW_1),deg_dis_SW_1,col="green",
+     main="Degree distribution of the first small world network"
+     ,xlab="Degree",ylab="Frequency",type="h")
+deg_bicimad <- degree(bicimad)
+deg_dis_bicimad <- degree_distribution(bicimad)
+plot(0:max(deg_bicimad),deg_dis_bicimad,col="orange",
+     main="Degree distribution of bicimad network"
+     ,xlab="Degree",ylab="Frequency",type="h")
+
+```
+
+Again, the results obtained are actually pretty close to the original network, where the degree was also concentrated in the right side of the plot. However, the real network has larger variance for the degree.
+
+```{r}
+a=c(mean_distance(SW_1),mean_distance(bicimad_und))
+b=c(diameter(SW_1),diameter(bicimad_und))
+c=c(edge_density(SW_1),edge_density(bicimad_und))
+d=c(transitivity(SW_1),transitivity(bicimad_und))
+resume=data.frame("Mean_distance"=a,"Diameter"=b,"Edge Density"=c,"transitivity"=d) 
+rownames(resume)=c("Small World Network","Bicimad Network")
+resume
+```
+
+Analyzing those results we can see that there are a few differences. Specially in the mean distance and the transitivity, were we can see that indeed for the network generated it is almost 2 times more locally dense.
+
+Now we will asses if the bicimad network has the small world property or not. For that we will be generating different networks with the same properties as the real network. For that we will using a classical model generator such us the Galbert model. We will be fixing both the number of nodes and the probability so the number of edges is as similar as possible to the real network.
+
+```{r}
+set.seed(10)
+N=262
+p=8/N
+n_trials=10000
+num_tran <- vector(mode="numeric",length=n_trials)
+num_ave_path_length <- vector(mode="numeric",length=n_trials)
+
+for (i in 1 : n_trials){
+  ER_graph <- sample_gnp(n=N,p=p)
+  num_tran[i] <- transitivity(ER_graph)
+  num_ave_path_length[i] <- mean_distance(ER_graph)
+}
+```
+
+Now we compute the transitivity of the real network so we can compare it with the ones from all the networks generated. 
+
+```{r}
+transitivity(bicimad,weights=rep(1,262))
+dist_bicimad <- distances(bicimad,weights=NULL)
+mean(dist_bicimad[lower.tri(dist_bicimad,diag=FALSE)])
+```
+
+We can then plot histograms with the results from the networks generated and see their differences with the real network. For assessing that the bicimad network has the small-world behavior the observed clustering coefficients should be larger than those of the random ones, whereas the average length must remain roughly the same.
+
+```{r}
+par(mfrow=c(2,1))
+hist(num_tran,col=color_1,
+     xlab="Clustering coefficients",ylab="Density",main="Bicimad is 0.2795")
+hist(num_ave_path_length,col=color_2,
+     xlab="Average path length",ylab="Density",main="Bicimad is 2.4031")
+```
+
+As it can be seen, the clustering coefficient for the real network is much larger than those for the ones generated at random. Furthermore, the average path length is also higher but not that much. Therefore we cans ay that the bicimad network might have small world properties.
