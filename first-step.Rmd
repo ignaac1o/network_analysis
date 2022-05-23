@@ -1125,7 +1125,7 @@ The following table contains the number of communities and their modularity for 
 summary_community_detection <- rbind(data_fg, data_lo, data_lp, data_wa)
 knitr::kable(summary_community_detection)
 ```
-As we can see in the previous figures of the table, the method *label propagation* is not doing properly the partitioning since the modularity is close to zero. The best community detection method among others is the *fast greedy* because it has the largest modularity, the next one is the *Louvain* algorithm. The *fast greedy* choice makes sense. Despite the label propagation method result, there is a clear interpretation for all the remaining algorithm that is the clustering has been made based on the geographical areas where a trip starts and ends.
+As we can see in the previous figures of the table, the method *label propagation* is not doing properly the partitioning since the modularity is close to zero. The best community detection method among others is the *fast greedy* because it has the largest modularity, the next one is the *Louvain* algorithm. The *fast greedy* choice makes sense. Despite all of this, there is a clear interpretation for all the remaining algorithm that is the clustering has been made based on the geographical areas where a trip starts and ends.
 
 
 ## Assortativity and mixing
