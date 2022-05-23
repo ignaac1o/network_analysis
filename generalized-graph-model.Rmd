@@ -1,0 +1,1378 @@
+---
+title: "generalized_graph_model"
+author: "Luis Ángel Rodríguez García"
+date: '2022-05-23'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if(!require(jsonlite)) install.packages(jsonlite)
+library(jsonlite)
+if(!require(parallel)) install.packages(parallel)
+library(parallel)
+if(!require(igraph)) install.packages(igraph)
+library(igraph)
+if(!require(dplyr)) install.packages(dplyr)
+library(dplyr)
+if(!require(RColorBrewer)) install.packages(RColorBrewer)
+library(RColorBrewer)
+if(!require(GISTools)) install.packages(GISTools)
+library(GISTools)
+```
+
+# Introduction
+
+The network we would like to work with is generated from the data available in the following [link](https://opendata.emtmadrid.es/Datos-estaticos/Datos-generales-(1)), that is an open data provided by the Madrid's public transport company (EMT). It shows information (for instance, the travel time) about trips with bicycles made by users.
+
+Specifically, the network was created from data of June 2021 (`Situación estaciones bicimad por día y hora de Junio de 2021` to generate the vertices and `Datos de uso Junio 2021` to generate the links). Due to the fact that there are more than 400,000 trips, we have aggregated this data summarizing in two new fields: mean travel time and number of trips from each pair vertices. Afterwards, we have selected randomly just 10,000 observations to create the igraph object (identified as _bicimad_). All of these objects are available in the "bici-mad.RData" file.
+
+```{r, eval=FALSE}
+stations <- lapply(readLines("data-stations-202106.json"), fromJSON, flatten = TRUE)
+stations <- stations[[1]]$stations
+stations <- stations[, c(13, 10, 5, 8, 11)]
+colnames(stations)[which(names(stations) == "id")] <- "name"
+stations <- subset(stations, stations$name != 123)
+stations <- subset(stations, stations$name != 124)
+rownames(stations) <- stations$name
+stations <- stations %>%
+  mutate(
+    latitude = as.numeric(latitude),
+    longitude = as.numeric(longitude))
+
+json_raw   <- readr::read_file("data-users-202106.json")
+json_lines <- unlist(strsplit(json_raw, "\\n"))
+trips <- do.call(rbind, mclapply(json_lines, 
+                                 FUN = function(x){as.data.frame(jsonlite::fromJSON(x))}))
+colnames(trips)[which(names(trips) == "idunplug_station")] <- "from"
+colnames(trips)[which(names(trips) == "idplug_station")] <- "to"
+trips <- subset(trips, trips$to != 2009 & trips$from != 2009)
+trips <- trips[,-c(1,2, 3, 5)]
+trips <- trips[, c(3, 5, 2, 1, 4, 6, 7)]
+trip_summarize <- trips %>% 
+  group_by(from, to) %>%  
+  summarise(mean_travel_time = mean(travel_time), weight = n(), .groups = "keep")
+
+
+indexes <- sample(nrow(trip_summarize), size=10000)
+bicimad <- graph_from_data_frame(d=trip_summarize[indexes,], directed=T, vertices=stations)
+
+save.image("bicimad-data.RData")
+```
+
+# First step 
+
+## Main description of the network
+
+First of all, it is suitable to explain the main characteristics of the network we will work with. The *igraph* object which contains the network is loaded as well as a brief summary of it.
+
+```{r}
+load("bicimad-data.RData")
+bicimad
+```
+
+As we mentioned above, the network has been built from two different datasets. The data included in them contains several variables which will define the vertexes and the edges of the network. These are the attributes of all the **directed** network:
+
+ - *name (v/c)*: Base Station Code (v), which is a character (c).
+ - *address (v/c)*: The specific address in which the station can be found (v), which is a character (c).
+ - *total_bases (v/n)*: Number of station bases (v), which is a number (n).
+ - *longitude (v/n)*: Longitude of the station in WGS84 format (v), which is a number (n).
+ - *latitude (v/n)*: Latitude of the station in WGS84 format, which is a number (n).
+ - *mean_travel_time (e/n)*: Average time of the entire trip (e), which is a number (n).
+ - *weight (e/n)*: The weight of the edges, i.e. the number of different trips between two same pair-vertices (e), which is a number (n).
+
+The letters *v* and *e* refer to the vertices and the edges of the network, respectively. On the other hand, the letters *c* and *n* refer to the type of variable value (*c* if the type is character and *n* if it is numerical).
+
+Since this network has been created joining different datasets, there is no name and author of the graph. Hence, we set these two attributes:
+
+```{r}
+bicimad$name <- "BiciMAD"
+bicimad$Author <- "Ignacio Almodóvar, Javier Muñoz Flores & Luis Ángel Rodríguez García"
+graph_attr(bicimad)
+```
+
+The next point is to describe the vertices of the network. In particular, we are interested in knowing how many vertices the network contains, which are these vertices and the attributes associated.
+
+```{r}
+gorder(bicimad)
+```
+
+The number of vertices, i.e. the **order of the network**, is 262. 
+
+```{r}
+vertex_attr_names(bicimad)
+head(V(bicimad)$"name")
+head(V(bicimad)$"address")
+head(V(bicimad)$"total_bases")
+head(V(bicimad)$"longitude")
+head(V(bicimad)$"latitude")
+```
+
+The previous two outputs show the label of the vertices attributes as well as the values which they contain. Specifically, the attributes are:
+
+ - The name of the station in the network.
+ - The address of the station in the network.
+ - The number of station bases in the network, that is the maximum number of bicycles.
+ - The latitude and longitude where the stations are.
+ 
+Now, we proceed with the same pipeline to find the number of edges and the attributes which they contain. 
+
+```{r}
+gsize(bicimad)
+```
+
+The number of edges, i.e. the **size of the network** is 10000. This value is precisely the number of random observations we have selected from the trips dataset.  
+
+Now, we show the edges themselves and their attributes.
+
+```{r}
+E(bicimad)
+head(as_edgelist(bicimad))
+edge_attr_names(bicimad)
+head(E(bicimad)$"mean_travel_time")
+head(E(bicimad)$"weight")
+```
+
+The previous outputs show the labels of the edges attributes as well as the values which they contain. Specifically, the attributes are:
+
+ - The average time of the bicycle trips between two stations.
+ - The number of different trips between two stations.
+ 
+An important point when dealing with networks is to check if it contains loops. In this case, it refers to bicycle trips in which the destination and the arrival are the same vertex. 
+
+```{r}
+if_loops <- E(bicimad)[which(which_loop(bicimad)==TRUE)]
+length(if_loops)
+```
+
+There are exactly 43 loops in the data. 
+
+To conclude this section, it is suitable to have a look at a basic visual representation of the graph.
+
+```{r, fig.align='center'}
+par(mar=c(0,0,0,0))
+plot.igraph(bicimad,vertex.size=8,edge.width=0.2,edge.arrow.size=0.3,
+            edge.arrow.width=1,vertex.label.cex=0.5)
+```
+
+It seems difficult to identify the presence of groups in the graph, since the stations are well distributed over the city. However, the graph plot is used to see the loops mentioned and the multiple connections between stations. However, a further graphical description of the graph will take place at the end of this first part.
+
+## Degree sequence and distribution of the network
+
+For a deep analysis of our **directed** network, it is appropriate to obtain the in, out and total degree sequence, that is:
+
+ - In-degree of a vertex $v \in V$ ($d_{v}^{in}$): Number of edges pointing in towards $v \in V$.
+ - Out-degree of a vertex $v \in V$ ($d_{v}^{out}$): Number of edges out from $v \in V$.
+ - Total degree of a vertex $v \in V$: $d_{v} = d_{v}^{in} + d_{v}^{out}$.
+
+```{r}
+deg_in <- degree(bicimad,mode="in")
+deg_out <- degree(bicimad,mode="out")
+deg_total <- degree(bicimad,mode="total")
+```
+
+In addition, we check that both the sum of the in-degree and the out-degree are equal to the size of the network. That is:
+
+$$
+\sum_{v=1}^{N}d_{v}^{in} = \sum_{v=1}^{N}d_{v}^{out} = L = 10000
+$$
+```{r}
+sum(deg_in) == sum(deg_out)
+sum(deg_out) == gsize(bicimad)
+```
+
+We also compute the average in and out degree of the network and check that the result is the same. Precisely, this value will be equal to the ratio of the size and the order of the network, since the network is directed.
+
+```{r}
+mean(deg_in)
+mean(deg_in) == mean(deg_out)
+round(mean(deg_in),5) == round(gsize(bicimad)/gorder(bicimad),5)
+```
+
+Let's compute the degree distribution in order to carry out a further characterization of the sequence. Because of the large number of observations of the data, i.e. a large value of L, it is suitable to represent this distribution through an histogram and a kernel density. We show the in, out and total degree distribution and we will see if there is any significant difference between them.
+
+```{r fig.width=7, fig.height=4}
+par(mfrow=c(1,2),mar=c(5,4,4,2)+0.1)
+hist(degree(bicimad,mode="in"),
+     freq=FALSE,col="deepskyblue2",
+     main="In degree distribution",
+     xlab="In degree")
+plot(density(degree(bicimad,mode="in")),
+     lwd=3,col="deepskyblue2",
+     main="Kernel density of in degree")
+```
+
+```{r fig.width=7, fig.height=4}
+par(mfrow=c(1,2),mar=c(5,4,4,2)+0.1)
+hist(degree(bicimad,mode="out"),
+     freq=FALSE,col="deepskyblue2",
+     main="Out degree distribution",
+     xlab="Out degree")
+plot(density(degree(bicimad,mode="out")),
+     lwd=3,col="deepskyblue2",
+     main="Kernel density of out degree")
+```
+
+```{r fig.width=7, fig.height=4}
+par(mfrow=c(1,2),mar=c(5,4,4,2)+0.1)
+hist(degree(bicimad,mode="total"),
+     freq=FALSE,col="deepskyblue2",
+     main="Total degree distribution",
+     xlab="Total degree")
+plot(density(degree(bicimad,mode="total")),
+     lwd=3,col="deepskyblue2",
+     main="Kernel density of total degree")
+```
+
+We notice that the distribution is similar for all the cases. It means that there are approximately the same number of users that plug and unplug the bicycle in all the stations.
+
+Furthermore, we can note that the degree distribution is slightly positive skewed for the three cases.
+
+Now we analyze the weighted degree sequence since our graph edges include weights:
+
+```{r}
+graph_strength_distribution <- function (graph,cumulative=FALSE,...) {
+  if (!is.igraph(graph)) {
+    stop("Not a graph object")
+  }
+  cs <- graph.strength(graph,...)
+  hi <- hist(cs,-1:max(cs),plot=FALSE)$density
+  if (!cumulative) {
+    res <- hi
+  }
+  else {
+    res <- rev(cumsum(rev(hi)))
+  }
+  res
+}
+
+plot(0:max(strength(bicimad)), graph_strength_distribution(bicimad),
+     type="h", col="deepskyblue2", lwd=2,
+     main="Weighted degree distribution of bicimad network",
+     xlab="Degree", ylab="Frequency")
+points(0:max(strength(bicimad)), graph_strength_distribution(bicimad), pch=20)
+```
+
+Analyzing the frequencies plot, we can see that the degrees more repeated in our network are those between 250-510.
+
+```{r, results='hide'}
+which(table(strength(bicimad))==3)
+which(table(strength(bicimad))==2)
+```
+
+However, we can also see that the most repeated ones are those with 286, 341, 386, 454, 475 and 495 degrees, which is the peak of the plot and they are repeated three times.
+
+## Identify relevant nodes and explain what information seems to be useful for understanding the network
+
+In previous section we have already calculated the degree of each node. However, for this analysis it might be more useful to know which node is the one with highest degree, i.e that place were more bikes are taken and left. This node will mean one of the most concurred places for taking bicycles. 
+
+This could represent that either other public transport methods are not accessible enough to get to that place of the city or that it is a place were most people visiting it are young and are willing to take a bike as a method to get there. We can easily obtain the index for the node with highest degree and its value, as well as the correspondent address:
+
+```{r}
+deg=degree(bicimad) %>% which.max()
+degree(bicimad,deg)
+vertex_attr(bicimad)$address[deg]
+```
+
+We can see that the node 169 is the one with highest degree (110). This corresponds to the station located in "Calle Manuel Silvela". Indeed, this street belongs to the neighborhood of "Trafalgar", which is a place frequently visited by young people, ergo people willing to take a bike as an option to get to that place easily and cheaply. Also, visualizing the area contained in the M-30 we can see that the point were this station is located is very close to what will be de geometric center of the figure.
+
+Nevertheless, we have taken the degree without considering the weight. Therefore, that most frequent node correspond not to the most visited one but to the most diverse one i.e that one were more people from different stations over Madrid come and go.
+
+Now to see which node is really the most visited one we have to consider the weights.
+
+```{r}
+wdeg=strength(bicimad) %>% which.max()
+strength(bicimad,wdeg)
+vertex_attr(bicimad)$address[wdeg]
+```
+
+We can now see that including the weights the most visited node is the number 132, visited 1653 times and corresponds to the address "Paseo de la Florida nº 8". This result makes also sense as that is a place were several points of interest are located, such us Pricipe Pio shopping center, the Manzanares river, the Real Palace and Plaza España, between many more.
+
+We can finally check whether our network is a multigraph or not. Without further knowledge, the network might have loops, as leaving a bike on the same station where it has taken at first seems not only possible but very doable. Indeed we can see that it is a multigraph.
+
+```{r}
+is_simple(bicimad)
+```
+
+## Is the graph connected? Obtain components, diameter, farther vertices,...
+
+Now, to know if every vertex is reachable from every other i.e. being connected, we can take this function.
+
+```{r}
+is_connected(bicimad)
+```
+
+As expected, the graph is indeed connected. This is reasonable as there are not constraints about going to one place or another using these type of bike service. You can take a bike from any station and return it whatever different one.
+
+```{r}
+components(bicimad)
+```
+
+Indeed the components as expected is the whole graph that we have been discussing above.
+
+Now, to know, which is the longest path between vertices, we can obtain its diameter. We could either do it considering the weights or not. However, as the weights in our network represents the number of times each link is repeated, we believe that it does not make any sense to compute the diameter considering the weights. Therefore we calculate them without the weights.
+
+```{r}
+get_diameter(bicimad,weights=rep(1,gsize(bicimad)))
+diameter(bicimad,weights=rep(1,gsize(bicimad)))
+```
+
+We can see that the longest ride possible for the network  without considering weights is going from "Puerta del Sol" to "Avenida de la Complutense n23" but passing through "Calle Desengaño n1" and "Avenida de Camilo José Cela n23" respectively. Also we can compute the farthest node, which will be the start and end point of the diameter before calculated.
+
+```{r}
+farthest_vertices(bicimad,weights=rep(1,gsize(bicimad)))
+```
+
+Checking this journey in Google maps, it says that there is a 5.5km distance between those two and it might take about 25 minutes to get there.
+
+We can see that without further knowledge considering this trip as the longest one does not make much sense. Therefore we are going to consider weight for the network, but not the ones already associated with each link. We will use another attribute for the weights. We have computed the mean travel time for each link and this will indicate for each link on the network the mean journey time for going from one vertices to another.
+
+```{r}
+farthest_vertices(bicimad,weights=trip_summarize$mean_travel_time[indexes])
+```
+
+
+Now this result makes much sense as this nodes corresponds to "Calle de Pedro Rico n4" and "Calle de la Hacienda de pavones n342". Checking the distance in Google Maps we can see that the fastest path is 13.3 km long and might take over 47 minutes.
+
+## Graphical representations of the network
+
+First all, we are going to create some variables that will help us to decorate the graph plots.
+
+Let's start defining 5 different zones of the vertices based on the latitude and the longitude of each vertex. Every zone represents a geographical area of Madrid: northwest (`NW`), northeast (`NE`), center (`C`), southwest (`SW`) and southeast (`SE`). We are going to associated to each vertex its area.
+
+```{r}
+
+coordinates <- stations[,c(4,5)]
+longitude_quantiles <- quantile(as.numeric(stations$longitude), prob=c(.30,.70))
+latitude_quantiles <- quantile(as.numeric(stations$latitude), prob=c(.30,.70))
+
+areas <- ifelse(
+  Reduce("&", list(
+    as.numeric(stations$latitude) > latitude_quantiles[1], 
+    as.numeric(stations$latitude) < latitude_quantiles[2], 
+    as.numeric(stations$longitude) > longitude_quantiles[1], 
+    as.numeric(stations$longitude) < longitude_quantiles[2])), "C", 
+                ifelse(as.numeric(stations$longitude) >= longitude_quantiles[2], 
+                ifelse(as.numeric(stations$latitude) 
+                       >= latitude_quantiles[2], 'NE', 'SE'),
+                ifelse(as.numeric(stations$latitude) 
+                       >= latitude_quantiles[2], 'NW', 'SW')))
+V(bicimad)$area <- areas
+```
+
+Next step is to associate a specific color to each area, for this purpose we are going to use the color palette package called `RColorBrewer`.
+
+```{r}
+pal <- brewer.pal(n = 5, name = "Dark2")
+
+areas_unique_legend <- unique(areas)
+colors_areas_legend <- sapply(areas_unique_legend, function(x) 
+    ifelse(x=="NE", pal[1],
+           ifelse(x=="SE", pal[2], 
+                  ifelse(x=="SW", pal[3], 
+                         ifelse(x=="NW", pal[4], pal[5])))))
+areas_colors <- sapply(areas, function(x) 
+    ifelse(x=="NE", pal[1],
+           ifelse(x=="SE", pal[2], 
+                  ifelse(x=="SW", pal[3], 
+                         ifelse(x=="NW", pal[4], pal[5]))))
+    )
+
+```
+
+Next initial point before plotting the graph is about obtaining the 6 group of vertices with the highest degree:
+
+```{r}
+bicimad_degrees <- degree(bicimad)
+
+first_highest_degree_id <- as.numeric(names(
+  which(bicimad_degrees==max(bicimad_degrees))))
+first_highest_degree_index <- which(bicimad_degrees==max(bicimad_degrees))
+
+bicimad_degrees[first_highest_degree_index] <- 0
+
+second_max_degree_val <- which(bicimad_degrees==max(bicimad_degrees))
+second_highest_degree_id <- as.numeric(names(second_max_degree_val))
+second_highest_degree_index <- second_max_degree_val
+
+bicimad_degrees[second_highest_degree_index] <- 0
+
+third_max_degree_val <- which(bicimad_degrees==max(bicimad_degrees))
+third_highest_degree_id <- as.numeric(names(third_max_degree_val))
+third_highest_degree_index <- third_max_degree_val
+
+bicimad_degrees[third_highest_degree_index] <- 0
+
+forth_max_degree_val <- which(bicimad_degrees==max(bicimad_degrees))
+forth_highest_degree_id <- as.numeric(names(forth_max_degree_val))
+forth_highest_degree_index <- forth_max_degree_val
+
+bicimad_degrees[forth_highest_degree_index] <- 0
+
+five_max_degree_val <- which(bicimad_degrees==max(bicimad_degrees))
+five_highest_degree_id <- as.numeric(names(five_max_degree_val))
+five_highest_degree_index <- five_max_degree_val
+
+bicimad_degrees[five_highest_degree_index] <- 0
+
+six_max_degree_val <- which(bicimad_degrees==max(bicimad_degrees))
+six_highest_degree_id <- as.numeric(names(six_max_degree_val))
+six_highest_degree_index <- six_max_degree_val
+
+bicimad_degrees[six_highest_degree_index] <- 0
+
+six_vertices_most_degree <- c(first_highest_degree_id, second_highest_degree_id,
+                              third_highest_degree_id, forth_highest_degree_id,
+                              five_highest_degree_id, six_highest_degree_id)
+six_vertices_most_degree_index <- c(first_highest_degree_index, 
+                                    second_highest_degree_index,
+                                    third_highest_degree_index, 
+                                    forth_highest_degree_index,
+                                    five_highest_degree_index, 
+                                    six_highest_degree_index)
+```
+
+Let's beginning with one of the most accurate simple graph layout we have identified, even though these kind of layouts are not good for large networks.
+
+We illustrate this with the tree layout, selecting as the root node the one with the highest degree (calculated at the beginning of this point), the vertex identified with the number 169.
+
+```{r, fig.width=12, fig.height=12, fig.align='center'}
+plot.igraph(bicimad, 
+            layout=layout_as_tree(bicimad, root=six_vertices_most_degree[1]), 
+            main="Bicimad network with tree layout", 
+            vertex.size=4, 
+            edge.arrow.size=0.3, 
+            edge.arrow.width=1, 
+            vertex.label.cex=0.7)
+```
+
+We can improve this graph plot adding the associated zone colors to each station. 
+
+```{r, fig.width=12, fig.height=12, fig.align='center'}
+V(bicimad)$color <- areas_colors
+plot.igraph(bicimad, 
+            layout=layout_as_tree(bicimad, root=six_vertices_most_degree[1]), 
+            main="Bicimad network with tree layout", 
+            vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, 
+            edge.arrow.width=1, vertex.label.cex=0.5)
+
+legend('topright', legend=unique(areas), fill=colors_areas_legend, 
+       col=colors_areas_legend)
+```
+
+In this last plot, we have seen that the station with the highest degree is located in the southwest area of Madrid. We can see as well that the right 2nd and the left-center 3rd levels of the tree are those ones with the more concentrated edges. Nevertheless, this kind of layouts is not so appropriate due to the fact that the graph is large and it contains cycles.
+
+We have tried other simple layouts but none provides good results. It is worthy to say that the *Chord diagram* was not useful and it had a bad computationally performance.
+
+The next graph layout we are going to present belongs to those ones that are based on maximizing a energy function. In our particular example, we have used the *Fruchtermann and Reingold* layout:
+
+```{r, fig.width=12, fig.height=12, fig.align='center'}
+plot.igraph(bicimad, layout=layout_with_fr, 
+            main="Bicimad network with Fruchterman-Reingold layout", 
+            vertex.size=4, edge.width=0.2, edge.arrow.size=0.3, 
+            edge.arrow.width=1, vertex.label.cex=0.5)
+legend('topright', legend=unique(areas), fill=colors_areas_legend, 
+       col=colors_areas_legend)
+```
+
+We have given this graph layout as an example because it is curious how the optimization of the objective function provides results really valuable. Thanks to the colored vertexes, we have realized that the zone areas are properly clustered. This means, for example, that those stations located in the center are surrounded by the rest of the stations, therefore located in the middle of the graph. Multidimensional scaling layout has done a well job clustering the vertexes but not as clear as this method that is the reason we have considered it as illustration. 
+
+At last but not least, we are going to introduce the graph chart that we have chosen as the best possible representation with the methods that we have learnt. This graph is displayed using a custom layout created with the function `layout.norm` which allows to rescale coordinates linearly to be within given bound, in our case the latitude and longitude. 
+
+Other things we are going to do in order to provide a proper visualization are about to represent as a square with its color more transparent those vertexes with the highest degree, previously calculated and color the edges with the same colors as the vertex where they come from.
+
+In this last chart that is show below, we see that arrows of all different colors are in many of the vertexes. Nevertheless, as it is expected, it is more likely to have arrows of edges from vertexes of surrounded zone areas. For instance, the node 269 does not have any edge from the southeast area of Madrid. 
+
+It does make sense as well that the nodes of the center of the city have most of them arrows which come from vertexes of all other areas, for instance, the station with the highest degree, identified as 169, contains edges from all other geographical areas. 
+
+It is possible to see some trips from and to the same station, for example, in case of the station identified with the id 172 which is located in the northeast area.
+
+The vertexes with the highest degree are represented with square shapes and they are mainly situated in the center of the graph.
+
+We conclude that the graph is very well connected therefore there is not any isolated vertex. We have seen that many of the trips that start in a specific area ends in the same area or in adjacent areas and that the vertexes with the highest degree are located approximately in the center of the graph.
+
+```{r, fig.width=12, fig.height=12, fig.align='center'}
+V(bicimad)$shape <- "circle"
+V(bicimad)[six_vertices_most_degree_index]$shape <- "square"
+E(bicimad)$color <- tail_of(bicimad, E(bicimad))$color
+V(bicimad)[six_vertices_most_degree_index]$color <- 
+  add.alpha(areas_colors[six_vertices_most_degree_index], .6)
+plot.igraph(bicimad, 
+            layout = layout.norm(as.matrix(coordinates)),
+            main="Bicimad network with custom layout using the latitude and the 
+            longitude",
+            vertex.size=4, 
+            edge.width=0.2, 
+            edge.arrow.size=0.3, 
+            edge.arrow.width=1,
+            vertex.label.cex=0.5)
+legend('topright', legend=unique(areas), fill=colors_areas_legend, 
+       col=colors_areas_legend)
+```
+
+# Second step - Descriptive and inferencial aspects of the network
+
+In order to obtain a further analysis of the network selected, it is suitable to carry out a description of the main characteristics and structural properties of the network. 
+
+## Vertex characteristics
+
+In this section, we will focus on describing the most central vertices of the network, i.e. the most important bikes stations. For this purpose, on the one hand, we will analyse the degree sequence in a deeper way and, on the other hand, we will obtain the different centrality measures.
+
+### Vertex degree
+
+Here, it is suitable to recall some outcomes computed before, i.e. the in and out degree distribution as well as the weighted degree distribution. 
+
+```{r}
+degree_dist_in <- degree_distribution(bicimad,mode="in")
+degree_dist_out <- degree_distribution(bicimad,mode="out")
+```
+
+```{r}
+color_1 <- "deepskyblue2"
+color_2 <- "darkorange2"
+par(mfrow = c(1,2))
+plot(0:max(degree(bicimad,mode="in")),degree_dist_in,col=color_1,
+     main="In-degree distribution",
+     xlab="Degree",ylab="Frequency",type="h")
+points(0:max(degree(bicimad,mode="in")),degree_dist_in,pch=20)
+plot(0:max(degree(bicimad,mode="out")),degree_dist_out,col=color_1,
+     main="Out-degree distribution",
+     xlab="Degree",ylab="Frequency",type="h")
+points(0:max(degree(bicimad,mode="out")),degree_dist_out,pch=20)
+```
+
+In most cases, the in and out degree distribution of a directed graph are skewed to the right. It is because of most of the real life networks are sparse, i.e. the number of edges of the network is small compared with the maximum number that the network could contains.
+
+However, in our case the ratio between the number of edges $L$ and the maximum number of edges $\frac{N(N-1)}{2}$ is not as small as the majority of cases for both cases (in and out). Hence, the degree distribution for both cases is skewed to the left instead of skewed to the right (negative skewness). It is because our analysis is based on an entire month, so the trips during a day are accumulated since the first day of June up to the last one of it. Therefore, there will be an considerable number of vertices with a high degree. We can check this fact computing the ratio mentioned.
+
+```{r}
+ecount(bicimad)/(vcount(bicimad)*(vcount(bicimad)-1)/2)
+```
+
+The purpose of identifying the decay distribution of a network is for showing a linear relationship between frequency and probabilities of degree by plotting them in log-scale. Thus, if the linear relationship exists it can suggest that the degree distribution follows a power-law density and it could be possible to fit a regression model. However, in our case neither the in-degree nor the out-degree distribution (even the total), after applying log-scale, suggests a negative linear effect, but a positive one, since the majority of the degrees are not small compared with the total. We plot what we have mentioned but only in terms of the degree distribution since it follows a similar distribution than in and out degree ones. 
+
+```{r}
+degree_dist <- degree_distribution(bicimad)
+max_degree_bicimad <- max(degree(bicimad))
+degree_dist_pos <- which(degree_dist!=0)
+
+plot(degree_dist_pos-1,degree_dist[degree_dist_pos],log="xy",
+     col=color_1,main="Log-log degree distribution",
+     xlab="Log-Degree",ylab="Log-Frequency",pch=19)
+```
+
+
+```{r}
+log_deg_dist <- log(degree_dist[degree_dist_pos])[-1]
+log_deg <- log(degree_dist_pos-1)[-1]
+first_fit <- lm(log_deg_dist~log_deg)
+second_fit <- lm(log_deg_dist~log_deg,weights=1/first_fit$fitted.values^2)
+summary(second_fit)
+```
+
+
+```{r}
+plot(log_deg,log_deg_dist,
+     col=color_1,main="Log-log degree distribution",
+     xlab="Log-Degree",ylab="Log-Frequency",pch=19)
+abline(second_fit$coefficients[1],second_fit$coefficients[2],col=color_2,lwd=2)
+```
+
+Hence, in our case it could be possible to fit a regression model $log (pd ) = c + \alpha log (d) + \epsilon$ in which the term $\alpha$ is positive instead of negative. However, the coefficient of determination $R^2$, which tells us how good is the fit, is very low. It is because, as we mentioned, our case does not contain the exponential effect that we can found in most cases.
+
+On the other hand, the analysis of the fit of a regression model for the weighted degree distribution is completely different. Here, there are more larger number of lower degrees, therefore the slope will be negative and the trend will be descending.
+
+```{r}
+weighted_degree_dist <- graph_strength_distribution(bicimad)
+max_weighted_degree <- max(strength(bicimad))
+par(mar=c(5,4,4,2)+0.1)
+plot(0:max_weighted_degree,weighted_degree_dist,col=color_1,
+     main="Weighted degree distribution ",
+     xlab="Weighted degree",ylab="Frequency",type="h")
+points(0:max_weighted_degree,weighted_degree_dist,pch=20)
+```
+
+```{r}
+weighted_degree_dist_pos <- which(weighted_degree_dist!=0)
+```
+
+```{r}
+plot(weighted_degree_dist_pos-1,
+     weighted_degree_dist[weighted_degree_dist_pos],
+     log="xy",col=color_1,main="Log-log weighted degree distribution",
+     xlab="Log-Weighted-Degree",ylab="Log-Frequency",pch=19)
+```
+
+```{r}
+log_weighted_deg_dist <- log(weighted_degree_dist[weighted_degree_dist_pos])
+log_weighted_deg <- log(weighted_degree_dist_pos-1)
+first_fit <- lm(log_weighted_deg_dist~log_weighted_deg)
+second_fit <- lm(log_weighted_deg_dist~log_weighted_deg,weights=1/first_fit$fitted.values^2)
+summary(second_fit)
+```
+
+
+```{r}
+plot(log_weighted_deg,log_weighted_deg_dist,
+     col=color_1,main="Log-log weighted degree distribution",
+     xlab="Log-Weighted-Degree",ylab="Log-Frequency",pch=19)
+abline(second_fit$coefficients[1],second_fit$coefficients[2],col=color_2,lwd=2)
+```
+
+Nevertheless, there are a large difference between the values of the weighted degrees, so the fit is not so good ($R^2 < 0.1$).
+
+To conclude this section, in order to determine the most central vertices considering the degree, we have seen that in the simple degree case there are a high number of central vertices, since the distribution is skewed to the left. The opposite case takes place for weighted degrees, because of the $\alpha$ term is negative, i.e. there a higher number of lower degrees.
+
+## Centrality measures
+
+### Vertex degree
+
+It is the simplest centrality measure. Since *Bicimad* network is a directed graph, first we take into account the directions. 
+
+```{r}
+sorted_degree_vertices_in <- sort.int(degree(bicimad, 
+                mode ="in"),
+                decreasing=TRUE,
+                index.return=TRUE)
+
+sorted_degree_vertices_out <- sort.int(degree(bicimad, mode="out"),
+                                       decreasing=TRUE,
+                                       index.return=TRUE)
+
+in_out_table <- cbind("In-degree central vertices" =
+                V(bicimad)$address[sorted_degree_vertices_in$ix[1:5]], 
+                      "Out-degree central vertices"=
+                  V(bicimad)$address[sorted_degree_vertices_out$ix[1:5]])
+knitr::kable(in_out_table)
+```
+
+We can see that the most central stations are different using in-degree and out-degree. While the most important vertices for the in-degree case is **Calle Bustamante nº 1**, and it may be due to this station is near of Atocha, Mendez Álvaro and Embajadores, three important train and metro stations with quite connections with other stations of Madrid, the most central vertex for out-degree case is **Paseo de la Chopera nº 14**, located at the south of the network. Now, we take a look for the total-degree case, i.e. we do not take into account the directions.
+
+```{r}
+sorted_degree_vertices <- sort.int(degree(bicimad, mode ="all"),decreasing=TRUE,index.return=TRUE)
+total <- cbind("Total central vertices" = V(bicimad)$address[sorted_degree_vertices$ix[1:5]])
+knitr::kable(total)
+```
+
+In this case, only one of the stations coincide with the outcome of the five most central vertices of out-degree. It means there are stations in which users take more bikes than others, and there are stations in which users leave more bikes than others. In particular, the most central vertices are **Calle Manuel Silvela nº 20** and **Calle José Ortega y Gasset nº 4** located at the center of the network.
+
+Now, let's take a look at the most important vertices considering the weighted degree vertices. 
+
+```{r}
+sorted_w_degree_vertices <- sort.int(strength(bicimad),decreasing=TRUE,index.return=TRUE)
+
+total_w <- cbind("Weighted central vertices" = V(bicimad)$address[sorted_w_degree_vertices$ix[1:5]])
+knitr::kable(total_w)
+```
+
+We can see that the most important vertices are different for the unweighted case. It means that the most repeated trips do not take place in the same stations than the most bikes are taken and left from. However, there is a station, **Glorieta de Quevedo nº 5**, which will be repeated for almost all the next measures. In addition, the station **Paseo de la Florida nº 8** is the most important in this case, and we notice that it is a station which is near of Príncipe Pío, an important place in Madrid because here is a train station which connects with other places far from there and this bike station is a bit far away from other bike stations, what could be a reason for the large number of different trips (high weighted degree).
+
+### Closenesses
+
+It is known that a vertex is central if it is close to many other vertices. We repeat the same procedure with this measure. First, we analyse the measure with directions and without weights:
+
+```{r}
+close_measure_in <- sort.int(closeness(bicimad,mode = "in",normalized=TRUE,weights=rep(1,ecount(bicimad))),decreasing=TRUE,index.return=TRUE)
+close_measure_out <- sort.int(closeness(bicimad,mode = "out",normalized=TRUE,weights=rep(1,ecount(bicimad))),decreasing=TRUE,index.return=TRUE)
+
+close_in_out <- cbind("In closeness" = V(bicimad)$address[close_measure_in$ix][1:5], "Out closeness" = V(bicimad)$address[close_measure_out$ix][1:5])
+knitr::kable(close_in_out)
+```
+
+Again, there are differences between the edges that in and out of the vertices. There is no station in common in both cases but again **Calle Bustamante nº 1** and **Paseo de la Chopera nº 14** are the most important stations for each case. Let's analyse the measure without taking into account the directions:
+
+```{r}
+close_measure <- sort.int(closeness(bicimad,mode="all",normalized=TRUE,weights=rep(1,ecount(bicimad)))                           ,decreasing=TRUE,index.return=TRUE)
+
+close_total <- cbind("Total closenesses" = V(bicimad)$address[close_measure$ix][1:5])
+knitr::kable(close_total)
+```
+
+Again, **Calle Manuel Silvela nº 20**, **Calle José Ortega y Gasset nº 4**, **Calle Juan Bravo nº 50** are among the five most important stations as in the degree measure for the undirected case. We take a look at the weighted undirected case:
+
+```{r}
+close_w_measure <- sort.int(closeness(bicimad,mode="all",normalized=TRUE,weights=1/E(bicimad)$weight)                           ,decreasing=TRUE,index.return=TRUE)
+
+close_W_total <- cbind("Weighted closenesses" = V(bicimad)$address[close_w_measure$ix][1:5])
+knitr::kable(close_W_total)
+```
+
+The weighted case shows also that **Plaza de la Cebada nº 16** and **Glorieta de Quevedo nº 5** are among the five most central stations.
+
+### Betweenness
+
+The main idea behind the betweenness measure is that a  vertex is central if it is necessary to cross through it to go from many vertices to others. We will study this measure for the undirected and the directed scenario as well as the weighted and unweighted for the undirected case.
+
+```{r}
+betw_measure_un <- sort.int(betweenness(bicimad,normalized=TRUE,directed=FALSE,weights=rep(1,ecount(bicimad)))                           ,decreasing=TRUE,index.return=TRUE)
+
+betw_measure_dir <- sort.int(betweenness(bicimad,normalized=TRUE,directed=TRUE,weights=rep(1,ecount(bicimad)))                           ,decreasing=TRUE,index.return=TRUE)
+
+betw_total <- cbind("Undirected betweenness" = V(bicimad)$address[betw_measure_un$ix][1:5], "Directed betweenness" = V(bicimad)$address[betw_measure_dir$ix][1:5])
+knitr::kable(betw_total)
+```
+
+In this case, the measure coincides for the directed and the undirected case in four of the five most important vertices: **Calle Manuel Silvela nº 20**,
+**Calle Juan Bravo nº 50**, **Glorieta de Quevedo nº 5** and **Calle Fernández de la Hoz nº 29**. Let's see the weighted case:
+
+```{r}
+betw_w_measure <- sort.int(betweenness(bicimad,normalized=TRUE,directed=FALSE,weights=1/E(bicimad)$weight)                    ,decreasing=TRUE,index.return=TRUE)
+
+betw_w_total <- cbind("Weighted betwenesses" = V(bicimad)$address[betw_w_measure$ix][1:5])
+knitr::kable(betw_w_total)
+```
+
+Here, **Glorieta de Quevedo nº 5** and **Plaza de la Cebada nº 16** are repeated again.
+
+### Eigenvector
+
+The eigenvector centrality measure says that a vertex is important if their neighbors are important. We same the same procedure as before:
+
+```{r}
+eigen_un <- sort.int(eigen_centrality(bicimad,
+                                       scale=FALSE,
+                                      directed = FALSE,
+                                      weights=rep(1,ecount(bicimad)))$vector,
+                                       decreasing=TRUE,index.return=TRUE)
+
+eigen_dir <- sort.int(eigen_centrality(bicimad,
+                                       scale=FALSE,
+                                       directed = TRUE,
+                                      weights=rep(1,ecount(bicimad)))$vector,
+                                       decreasing=TRUE,index.return=TRUE)
+betw_total <- cbind("Undirected case" = V(bicimad)$address[eigen_un$ix][1:5], "Directed case" = V(bicimad)$address[eigen_dir$ix][1:5])
+knitr::kable(betw_total)
+```
+
+For the undirected case, we see again the vertices which appear in the previous measures. However, for the directed case, there are new important stations like **Calle San Bernardo nº 85** and **Ronda de Atocha nº 2**. 
+
+```{r}
+eig_w_measure <- sort.int(eigen_centrality(bicimad,
+                                       scale=FALSE,
+                                      directed = FALSE,
+                                      weights=E(bicimad)$weight)$vector,
+                                      decreasing=TRUE,index.return=TRUE)
+                                      
+
+eig_w_total <- cbind("Weighted case" = V(bicimad)$address[eig_w_measure$ix][1:5])
+knitr::kable(eig_w_total)
+```
+
+Again, there are important vertices which repeat: **Paseo de la Florida nº 8** and **Paseo de la Chopera nº 14**.
+
+### Page rank 
+
+This measure is based on a similar idea than eigenvector measure, a vertex is important if the neighbors are important. Again, we follow the same previous procedure:
+
+```{r}
+page_un <- sort.int(page_rank(bicimad,
+                                      directed = FALSE,
+                                      weights=rep(1,ecount(bicimad)))$vector,
+                                       decreasing=TRUE,index.return=TRUE)
+
+page_dir <- sort.int(page_rank(bicimad,
+                                       directed = TRUE,
+                                      weights=rep(1,ecount(bicimad)))$vector,
+                                       decreasing=TRUE,index.return=TRUE)
+page_total <- cbind("Undirected case" = V(bicimad)$address[page_un$ix][1:5], "Directed case" = V(bicimad)$address[page_dir$ix][1:5])
+knitr::kable(page_total)
+```
+
+```{r}
+page_w_measure <- sort.int(page_rank(bicimad,
+                                      directed = FALSE,
+                                      weights=E(bicimad)$weight)$vector,
+                                      decreasing=TRUE,index.return=TRUE)
+                                      
+
+page_w_total <- cbind("Weighted case" = V(bicimad)$address[page_w_measure$ix][1:5])
+knitr::kable(page_w_total)
+```
+
+To conclude the section, it is suitable to highlight the most central vertices which are most repeated in the results of the centrality measures: **Calle Manuel Silvela nº 20**,	**Calle Bustamante nº 1**, **Calle Juan Bravo nº 50**, **Glorieta de Quevedo nº 5**,	**Calle José Ortega y Gasset nº 4**, **Paseo de la Florida nº 8** and **Plaza de la Cebada nº 16**.
+
+## Edge characteristics
+
+### Centrality measures: Betweenness
+
+It is the only measure to determine the most important edges in the network. Let's analyse it with the undirected and the directed graph:
+
+```{r}
+betw_edge <- sort.int(edge_betweenness(bicimad,directed=FALSE),
+                            decreasing=TRUE,index.return=TRUE)
+E(bicimad)[betw_edge$ix[1:5]]
+und_betw_edge <- V(bicimad)[which(V(bicimad)$name %in% c(268,80,90,250,58,61,38,250,57))]$address
+und_betw_edge
+```
+
+```{r}
+betw_edge_dir <- sort.int(edge_betweenness(bicimad,directed=TRUE),
+                                decreasing=TRUE,index.return=TRUE)
+E(bicimad)[betw_edge_dir$ix[1:5]]
+dir_betw_edge <- V(bicimad)[which(V(bicimad)$name %in% c(178,87,79,165,132,77,177,256,120,266))]$address
+dir_betw_edge
+```
+
+We can see that there is a large difference between edge relevance for both scenarios and it does not appear any of the most central vertices calculated before.
+
+## Analyze the local density of the network
+
+To Analyze it we will go through different steps and we will be getting different insights that will help at the end to have a better understanding of our network.
+
+### Calculate cliques
+
+We will first calculate the cliques of the network. As this is quite a big network, it takes a little bit of time to compute all the cliques. However, within less than a minute we can have them.
+
+```{r}
+bicimad_cliques=cliques(bicimad)
+table(sapply(bicimad_cliques,length))
+```
+
+As it can be seen there are 62 different cliques of size 7, which are significantly the ones with less cliques. Nevertheless it is still a lot of cliques, so showing its output will be not very useful at all. Also, we can see that size four is the most repeated one, with almost 90.000 different combinations. This output does not really give much useful information as there are repeated cliques. Therefore we are going to compute the maximal cliques to solve this problem.
+
+```{r}
+bicimad_max_cliques <- max_cliques(bicimad)
+table(sapply(bicimad_max_cliques,length))
+```
+
+We can see that the number of maximal cliques has been notoriously reduced compared to the standard cliques. We can see that for those of size 3 only 318 of 60444 are maximal. Also a big reduction was made for those of size 4 which only 15229 are maximal from 89616. Therefore we can say that the network is spare, not specially dense.
+
+### Graph coreness
+
+By definition, the k-core of a graph G is the maximal subgraph H $\subseteq$ G, such that $\delta(H)\geq k$. For this network there are 233 stations with k-core equal to 56, which is indeed a very large k-core. Keeping in mind that our network is form by 262 different stations, having in the maximal k-core with 233 of those stations means that the network is dense.
+
+```{r}
+bicimad_cores <- coreness(bicimad)
+max(bicimad_cores)
+```
+
+```{r}
+length(which(bicimad_cores==max(bicimad_cores)))
+```
+
+We can also plot the histogram of the k-cores in this network. As expected, The highest frequency is located in 56, whereas for he rest of k-cores the frequency is very low.
+
+```{r}
+hist(bicimad_cores,col="deepskyblue2",
+     main="Histogram for the k-cores in the bicimad network")
+```
+
+### Density
+
+We are now going to compute the density for the bicimad network so we can be sure about what is this network about.
+
+```{r}
+edge_density(bicimad)
+```
+
+As expected the density is only 0.14, which is a low number, meaning that the network has low density. This result was expected as the records taken for building this network were only for 1 month. If we would have taken a year, the network will be much dense than now.
+
+We can also check different nodes to see their density. However, as the network is fully connected, all the nodes have more or less the same density.
+
+```{r}
+ego_pedroRico <- make_ego_graph(bicimad,order=1,nodes=which(V(bicimad)$address=="Calle Pedro Rico nº 4"))
+edge_density(ego_pedroRico[[1]])
+
+ego_Ortega <- make_ego_graph(bicimad,order=1,nodes=which(V(bicimad)$address=="Calle José Ortega y Gasset nº 30"))
+edge_density(ego_Ortega[[1]])
+
+ego_Pavones <- make_ego_graph(bicimad,order=1,nodes=which(V(bicimad)$address=="Calle Hacienda de Pavones nº 342"))
+edge_density(ego_Pavones[[1]])
+
+
+ego_Pavones <- make_ego_graph(bicimad,order=1,nodes=which(V(bicimad)$address=="Puerta del Sol nº 1"))
+edge_density(ego_Pavones[[1]])
+
+ego_35 <- make_ego_graph(bicimad,order=1,nodes=V(bicimad)[35])
+edge_density(ego_35[[1]])
+
+ego_5 <- make_ego_graph(bicimad,order=1,nodes=V(bicimad)[5])
+edge_density(ego_5[[1]])
+
+ego_100 <- make_ego_graph(bicimad,order=1,nodes=V(bicimad)[100])
+edge_density(ego_100[[1]])
+```
+
+Indeed, we can see that those nodes that were part of the longest path calculated in the first step, "Pedro Rico" and "Hacienda de los Pavones" are the ones with higher density. It might look at first that the results obtained are not correct and that those stations with higher degree should be the more dense ones. However, that logic is indeed wrong as the calculation of the degree considered the weight and therefore the number of times that a link was repeated whereas for the density we are just counting if a node has a link or not with another.
+
+### transitivty
+
+Finally we can measure the locally density of the network in terms of the triangles among connected triplets. Within this, we can see that indeed our network is again not much dense even locally.
+
+```{r}
+transitivity(bicimad,type="global")
+```
+
+
+## Analyze the conenctivity of your network
+
+From the first step of the project we already mentioned that out network was fully connected. Therefore, the number of components in our network were indeed one, both for strong and weak cases. 
+
+```{r}
+comps_bicimad_strong <- igraph::components(bicimad,mode="strong")
+comps_bicimad_strong$no
+
+comps_weak_bicimad <- igraph::components(bicimad,mode="weak")
+comps_weak_bicimad$no
+```
+
+Even though there are no different components in our network we can still calculate the mean length of all the shortest paths in this main component.
+
+```{r}
+mean_distance(bicimad)
+```
+
+We can see that the mean length is 3, which isn't a very large number.
+
+To analyze the connectivity of our network we have to see both its vertex connectivity and edge. For that we will compute its k-vertex and k-edge connectivity. 
+
+```{r}
+vertex_connectivity(bicimad)
+edge_connectivity(bicimad)
+```
+
+We can see that both edges and vertices are k-connected for a value of k=12, meaning that the removal of any subsets of vertices or edges of cardinally smaller than 12 leaves a subgraph that is connected.
+
+Therefore, for cuts of less than 12 nodes or edges the network will still be connected. That is its articulation point must be zero as no single vertex disconnects the graph. 
+
+```{r}
+art_bicimad <- articulation_points(bicimad)
+art_bicimad
+```
+
+And indeed, the minimum set of vertex to cut to disconnect the graph is 12, just as we mentioned before.
+
+
+
+## Community detection
+
+We are going to evaluate whether subsets of vertices demonstrate a cohesiveness with respect to the underlying relational patters.
+
+First, we need to define an undirected `bicimad` version due to many graph partitioning algorithms do not work with directed graphs.
+
+```{r}
+bicimad_undir <- as.undirected(bicimad, mode="each")
+sim_bicimad_undir <- simplify(bicimad_undir)
+```
+
+As we will see later on, there are algorithms such as *optimal modularity* and *edge betweenenness* that they cannot be executed with large networks like the one we are working with.
+
+To assess the partition of a graph we have the modularity measure that quantifies the quality of a graph partition. Then, the more positive this value, the better the community detection results are.
+
+### Fast greedy algorithm
+
+We avoid the algorithm called *optimal modularity* since it is not recommended for large networks, then we are going to execute the simplification version of this high-computational cost algorithm, called *fast greedy*.
+
+```{r}
+bicimad_fg <- cluster_fast_greedy(sim_bicimad_undir)
+bicimad_fg_k <- length(bicimad_fg)
+bicimas_fg_subk <- sizes(bicimad_fg)
+bicimad_fg_memb <- membership(bicimad_fg)
+bicimad_fg_mod <- modularity(bicimad_fg)
+data_fg <- cbind(bicimad_fg_k, bicimad_fg_mod)
+colnames(data_fg) <- c('K', 'mod')
+rownames(data_fg) <- c('fast greedy')
+```
+
+```{r, echo=FALSE}
+knitr::kable(data_fg)
+```
+
+
+```{r, fig.width=8, fig.height=8, fig.align='center'}
+coordinates <- stations[,c(4,5)]
+longitude_quantiles <- quantile(as.numeric(stations$longitude), prob=c(.30,.70))
+latitude_quantiles <- quantile(as.numeric(stations$latitude), prob=c(.30,.70))
+plot(bicimad_fg, sim_bicimad_undir, 
+            layout = layout.norm(as.matrix(coordinates)),
+            main="Bicimad network | Fast Greedy algorithm",
+            vertex.size=5, 
+            edge.width=0.2, 
+            edge.arrow.size=0, 
+            edge.arrow.width=0,
+            vertex.label.cex=0.5)
+```
+
+The graph partitioning in this case is formed by 4 groups, being the groups located in certain regions of Madrid city. Therefore, the vast majority of the vertices within the southwest area (associated to the cluster in the bottom left of the graph visualization) are those which starts a trip in this area and ends the trip in the same geographical zone. You can appreciate four different groups, that geometrically are located such as a diagonal, for example, the blue one goes from the west to the south, the red one goes from the north to the center-left, the purple from the central north to the central south and the green from the center to the east.
+
+```{r}
+barplot(bicimas_fg_subk, col="deepskyblue2",
+        main="Barplot of community sizes using Fast Greedy")
+```
+
+The subgraph with more vertices is the one coloured in red and associated with the value of 1. Then the 2 and 3 subgraphs colored with purple and light blue, respectively, that have more or less the same number of vertices. The forth cluster is the one with less vertices and it is associated with the gren color.
+
+### Louvain algorithm
+
+In the case of the *Louvain* method, the solution depends on the starting point that are the small communities selected at the beginning. Therefore there will be many different and valid solutions. Thus, the algorithm sometimes provides a solution of 3, 4 or 5 clusters. In order to avoid this random solution, we are going to fix a seed.
+
+
+```{r}
+set.seed(2)
+bicimad_lo <- cluster_louvain(sim_bicimad_undir)
+bicimad_lo_k <- length(bicimad_lo)
+bicimas_lo_subk <- sizes(bicimad_lo)
+bicimad_lo_memb <- membership(bicimad_lo)
+bicimad_lo_mod <- modularity(bicimad_lo)
+data_lo <- cbind(bicimad_lo_k, bicimad_lo_mod)
+colnames(data_lo) <- c('K', 'mod')
+rownames(data_lo) <- c('Louvain')
+```
+
+```{r, echo=FALSE}
+knitr::kable(data_lo)
+```
+
+```{r, fig.width=8, fig.height=8, fig.align='center'}
+plot(bicimad_lo, sim_bicimad_undir, 
+            layout = layout.norm(as.matrix(coordinates)),
+            main="Bicimad network | Louvain algorithm",
+            vertex.size=5, 
+            edge.width=0.2, 
+            edge.arrow.size=0, 
+            edge.arrow.width=0,
+            vertex.label.cex=0.5)
+```
+
+In this example, with a seed fixed of 2, we have obtained 3 different clusters. The green, the reed and the blue could be associated with the one that goes from the west to the south, from the east to the center and from the northeast to the northwest; respectively.
+
+```{r}
+barplot(bicimas_lo_subk, col="deepskyblue2",
+        main="Barplot of community sizes using Louvain")
+```
+
+All the three clusters have more or less the same number of vertices.
+
+### Label progagation algorithm
+
+In the case of the *label propagation* algorithm, we can use as an input the directed original graph we have. This algorithm takes into account the communities of its neighbors. We are going to indicate the initial value of the vertex lab with the result of the previous algorithm (*Louvain*).
+
+```{r}
+bicimad_lp <- cluster_label_prop(bicimad, initial=as.vector(membership(bicimad_lo)))
+bicimad_lp_k <- length(bicimad_lp)
+bicimas_lp_subk <- sizes(bicimad_lp)
+bicimad_lp_memb <- membership(bicimad_lp)
+bicimad_lp_mod <- modularity(bicimad_lp)
+data_lp <- cbind(bicimad_lp_k, bicimad_lp_mod)
+colnames(data_lp) <- c('K', 'mod')
+rownames(data_lp) <- c('Label propagation')
+```
+
+```{r, echo=FALSE}
+knitr::kable(data_lp)
+```
+
+```{r, fig.width=8, fig.height=8, fig.align='center'}
+plot(bicimad_lp, sim_bicimad_undir, 
+            layout = layout.norm(as.matrix(coordinates)),
+            main="Bicimad network | Label propagation algorithm",
+            vertex.size=5, 
+            edge.width=0.2, 
+            edge.arrow.size=0, 
+            edge.arrow.width=0,
+            vertex.label.cex=0.5)
+```
+
+As we can see in the results above, the quality of the partition is very poor since it is almost zero. The graph confirms it giving a cluster with just one vertex that it doesn't make so much sense. The address associated with the vertex 260 is *Calle Rodríguez Jaén nº 40*, located next to Chamartin train station. This group could be formed in that manner because edges colored in red are far away from the bike station.
+
+### Label progagation algorithm
+
+```{r}
+bicimad_wa <- cluster_walktrap(bicimad)
+bicimad_wa_k <- length(bicimad_wa)
+bicimas_wa_subk <- sizes(bicimad_wa)
+bicimad_wa_memb <- membership(bicimad_wa)
+bicimad_wa_mod <- modularity(bicimad_wa)
+data_wa <- cbind(bicimad_wa_k, bicimad_wa_mod)
+colnames(data_wa) <- c('K', 'mod')
+rownames(data_wa) <- c('Walktrap')
+```
+
+```{r, echo=FALSE}
+knitr::kable(data_wa)
+```
+
+
+```{r, fig.width=8, fig.height=8, fig.align='center'}
+plot(bicimad_wa, sim_bicimad_undir, 
+            layout = layout.norm(as.matrix(coordinates)),
+            main="Bicimad network | Walktrap algorithm",
+            vertex.size=5, 
+            edge.width=0.2, 
+            edge.arrow.size=0, 
+            edge.arrow.width=0,
+            vertex.label.cex=0.7)
+```
+
+In this case, the number of clusters suggested are 7, although there are 4 groups that only contains one vertex. Notice that two of these clusters are difficult to see them, one of them is located in the bottom left with a color of light yellow and the other is in the center of the graph with a dark blue color. It would  be interesting to know where these points are, then the light blue is located in *Plaza de Celenque nº 1*, the light purple is in *Calle Rodríguez Jaén nº 40*, the dark blue in *Paseo de la Castellana nº 4* and the orange one in *Calle Sierra Toledana nº 33*.
+
+```{r}
+barplot(bicimas_wa_subk, col="deepskyblue2",
+        main="Barplot of community sizes using Walktrap")
+```
+
+So the cluster 2 is the one with more vertices, this must be the one colored in yellow in the graph visualization.
+
+### Conclussion
+
+The following table contains the number of communities and their modularity for each of the method described above.
+
+```{r echo=FALSE}
+summary_community_detection <- rbind(data_fg, data_lo, data_lp, data_wa)
+knitr::kable(summary_community_detection)
+```
+As we can see in the previous figures of the table, the method *label propagation* is not doing properly the partitioning since the modularity is close to zero. The best community detection method among others is the *fast greedy* because it has the largest modularity, the next one is the *Louvain* algorithm. The *fast greedy* choice makes sense. Despite all of this, there is a clear interpretation for all the remaining algorithm that is the clustering has been made based on the geographical areas where a trip starts and ends.
+
+
+## Assortativity and mixing
+
+This is another point of view of understand the cohesion of a network. We proceed to evaluate this characteristic that quantifies the extent to which vertices may be partitioned according to them.
+
+```{r fig.align='center'}
+degree_bicimad <- igraph::degree(bicimad)
+bicimad_degrees <- matrix(NA,nrow=ecount(bicimad),ncol=2)
+edges_bicimad <- igraph::as_edgelist(bicimad)
+for (i in seq_len(ecount(bicimad))) {
+  bicimad_degrees[i,] <- degree_bicimad[edges_bicimad[i,]]
+}
+plot(bicimad_degrees, pch=19, 
+     col="deepskyblue2", 
+     main="Degree pairs for the bicimad network",
+     xlab="Degree", ylab="Degree")
+```
+
+In the previous scatter plot, we can see that vertices connects with others no matter the degree value they have. For example, the vertex with a small degree (approximately 10, in the horizontal bar) has edges to other vertex with degree approximately 40 and also with other with value 100. In contrast, vertex with highest degree connects with a vertex with approximately 50 and with other of 100 degree value.
+
+
+```{r}
+assortativity <- assortativity_degree(bicimad, V(bicimad))
+assortativity
+```
+
+
+As we could expect once we have evaluated the scatter plot and due to the fact that each station is connected more or less with others, the network is neutral since the assortativity value is -0.00797, being close to zero value.
+
+
+## Generalized random graph models
+
+Once we have applied the classical random graph models to our dataset, we are ready to describe the generalized random graph models. Generating a generalized random graph network with the same order (262 vertices) and with the same degree distribution than the bicimad network.
+
+```{r}
+deg_bicimad <- degree(bicimad)
+G_bicimad <- sample_degseq(deg_bicimad, method="vl")
+G_bicimad
+```
+
+As we can see in the description of the graph above, there are 262 vertices and 1000 edges, same as in the original, being the degree sequence equal in both networks. 
+
+```{r}
+par(mfrow=c(1,2))
+deg_bicimad <- degree(bicimad)
+deg_dis_bicimad <- degree_distribution(bicimad)
+plot(0:max(deg_bicimad), deg_dis_bicimad, col=pal[1],
+     main="Degree distribution of the bicimad",
+     xlab="Degree", ylab="Frequency", type="h")
+points(0:max(deg_bicimad), deg_dis_bicimad, pch=20)
+deg_G_bicimad <- degree(G_bicimad)
+deg_dis_G_bicimad <- degree_distribution(G_bicimad)
+plot(0:max(deg_G_bicimad), deg_dis_G_bicimad, col=pal[1],
+     main="Degree distribution of the generated",
+     xlab="Degree", ylab="Frequency", type="h")
+points(0:max(deg_G_bicimad), deg_dis_G_bicimad, pch=20)
+```
+
+The following charts compare the original network with the one we have just generated:
+
+```{r fig.width=8, fig.height=8, fig.align='center'}
+V(G_bicimad)$color <- pal[1]
+par(mfrow=c(2,2))
+plot.igraph(bicimad,layout=layout_as_tree(bicimad),
+            main="Bicimad network",
+            vertex.size=5, 
+            edge.width=0.2, 
+            edge.arrow.size=0, 
+            edge.arrow.width=0,
+            vertex.label.cex=0.5)
+plot.igraph(G_bicimad,layout=layout_as_tree(bicimad),
+            main="Generated network",
+            vertex.size=5, 
+            edge.width=0.2, 
+            edge.arrow.size=0, 
+            edge.arrow.width=0,
+            vertex.label.cex=0.5)
+plot.igraph(bicimad,layout=layout.norm(as.matrix(coordinates)),
+            main="Bicimad network",
+            vertex.size=5, 
+            edge.width=0.2, 
+            edge.arrow.size=0, 
+            edge.arrow.width=0,
+            vertex.label.cex=0.5)
+plot.igraph(G_bicimad,layout=layout.norm(as.matrix(coordinates)),
+            main="Generated network",
+            vertex.size=5, 
+            edge.width=0.2, 
+            edge.arrow.size=0, 
+            edge.arrow.width=0,
+            vertex.label.cex=0.5)
+```
+
+In order to see the similarities of the original and the generated networks, we are going to show the main characteristics:
+
+- Average path length:
+
+```{r}
+c(mean_distance(bicimad), mean_distance(G_bicimad))
+```
+
+- Diameter:
+
+```{r}
+c(diameter(bicimad, weights=rep(1, 10000)), diameter(G_bicimad))
+```
+
+- Density:
+
+```{r}
+c(edge_density(bicimad), edge_density(G_bicimad))
+```
+
+- Clustering coefficient:
+
+```{r}
+c(transitivity(bicimad, weights=rep(1,10000)), transitivity(G_bicimad))
+```
+
+- Number of components and size of the networks components:
+
+```{r}
+components(bicimad)
+```
+
+```{r}
+components(G_bicimad)
+```
+
+### Assessing the number of communities
+
+For assessing the number of communities, we generate random graphs according to the the Erdös and Rényi model. We generate 500 networks with N=262 vertices and L=10,000 edges, then we calculate the same community detection methods we have executed previously.
+
+```{r}
+set.seed(10046000)
+N <- 262
+L <- 10000
+n_trials <- 500
+num_comm_ER_fg <- vector(mode="numeric",length=n_trials)
+num_comm_ER_lo <- vector(mode="numeric",length=n_trials)
+num_comm_ER_lp <- vector(mode="numeric",length=n_trials)
+num_comm_ER_eb <- vector(mode="numeric",length=n_trials)
+num_comm_ER_wa <- vector(mode="numeric",length=n_trials)
+options(warn=-1)
+for (i in 1 : n_trials){
+  ER_bicimad <- sample_gnm(n=N,m=L)
+  cl_ER_bicimad_fg <- cluster_fast_greedy(ER_bicimad)
+  num_comm_ER_fg[i] <- length(cl_ER_bicimad_fg)
+  cl_ER_bicimad_lo <- cluster_louvain(ER_bicimad)
+  num_comm_ER_lo[i] <- length(cl_ER_bicimad_lo)
+  cl_ER_bicimad_lp <- cluster_label_prop(ER_bicimad,
+                    initial=as.vector(membership(cl_ER_bicimad_lo)))
+  num_comm_ER_lp[i] <- length(cl_ER_bicimad_lp)  
+  cl_ER_bicimad_wa <- cluster_walktrap(ER_bicimad)
+  num_comm_ER_wa[i] <- length(cl_ER_bicimad_wa)
+}
+options(warn=0)
+```
+
+The next step is to calculate the same graph partitions 100 times but using a generalized random graphs based on the degree sequence:
+
+```{r}
+set.seed(100469000)
+num_comm_G_fg <- vector(mode="numeric", length=n_trials)
+num_comm_G_lo <- vector(mode="numeric", length=n_trials)
+num_comm_G_lp <- vector(mode="numeric", length=n_trials)
+num_comm_G_eb <- vector(mode="numeric", length=n_trials)
+num_comm_G_wa <- vector(mode="numeric", length=n_trials)
+options(warn=-1)
+for (i in 1 : n_trials){
+  G_bicimad <- sample_degseq(deg_bicimad, method="vl")
+  cl_G_bicimad_fg <- cluster_fast_greedy(G_bicimad)
+  num_comm_G_fg[i] <- length(cl_G_bicimad_fg)
+  cl_G_bicimad_lo <- cluster_louvain(G_bicimad)
+  num_comm_G_lo[i] <- length(cl_G_bicimad_lo)
+  cl_G_bicimad_lp <- cluster_label_prop(G_bicimad,
+                    initial=as.vector(membership(cl_G_bicimad_lo)))
+  num_comm_G_lp[i] <- length(cl_G_bicimad_lp) 
+  cl_G_bicimad_wa <- cluster_walktrap(G_bicimad)
+  num_comm_G_wa[i] <- length(cl_G_bicimad_wa)
+}
+options(warn=0)
+```
+
+Then, we can compare the results obtained with each community detection with barplots:
+
+```{r}
+comm_ER_G_fg <- c(num_comm_ER_fg,num_comm_G_fg)
+ind_comm_ER_G_fg <- c(rep(1, n_trials), rep(2, n_trials))
+freqs_comm_ER_G_fg <- table(ind_comm_ER_G_fg, comm_ER_G_fg)/n_trials
+freqs_comm_ER_G_fg
+```
+
+
+```{r}
+color_2 <- pal[2]
+barplot(freqs_comm_ER_G_fg, beside=TRUE, col=c(color_1,color_2),
+        main="Fast greedy",
+        xlab="Number of communities", ylab="Relative frequencies",
+        legend=c("Same size", "Same degree sequence"))
+```
+
+```{r}
+comm_ER_G_lo <- c(num_comm_ER_lo, num_comm_G_lo)
+ind_comm_ER_G_lo <- c(rep(1,n_trials), rep(2,n_trials))
+freqs_comm_ER_G_lo <- table(ind_comm_ER_G_lo, comm_ER_G_lo) / n_trials
+freqs_comm_ER_G_lo
+```
+
+```{r}
+barplot(freqs_comm_ER_G_lo, beside=TRUE, col=c(color_1,color_2),
+        main="Louvain",
+        xlab="Number of communities", ylab="Relative frequencies",
+        legend=c("Same size","Same degree sequence"))
+```
+
+
+```{r}
+comm_ER_G_lp <- c(num_comm_ER_lp,num_comm_G_lp)
+ind_comm_ER_G_lp <- c(rep(1,n_trials),rep(2,n_trials))
+freqs_comm_ER_G_lp <- table(ind_comm_ER_G_lp,comm_ER_G_lp) / n_trials
+freqs_comm_ER_G_lp
+```
+
+In the label propagation case, as it occurred in the community detection section, there is just one proposed cluster, then we avoid to plot the barplot that compares the number of groups.
+
+```{r}
+comm_ER_G_wa <- c(num_comm_ER_wa, num_comm_G_wa)
+ind_comm_ER_G_wa <- c(rep(1,n_trials), rep(2,n_trials))
+freqs_comm_ER_G_wa <- table(ind_comm_ER_G_wa, comm_ER_G_wa)/n_trials
+freqs_comm_ER_G_wa
+```
+
+```{r}
+barplot(freqs_comm_ER_G_wa, beside=TRUE, col=c(color_1,color_2),
+        main="Walktrap ",
+        xlab="Number of communities", ylab="Relative frequencies",
+        legend=c("Same size", "Same degree sequence"))
+```
+
+The plots suggest the following:
+
+1. The algorithm *fast greedy* in the section community detection selects 4 graph partitions, nevertheless the results above shows that 4 has a low frequency. Then it could be not the best graph partitioning.
+
+2. The *louvain* approach selects 3 graph partitions, nevertheless the results above shows that this option is not even considered.
+
+3. The *label propagation* method select 2 groups, although we have not considered this option since the modularity was really small. In this case, the groups proposed here are just one.
+
+4. The *walktrap* method select 7 groups in the original data, for the generated graph models we have obtained that the best would be 4 graph partitions. Therefore we cannot accept 7 groups as the best since the frequency value associated is very small.
+
+
+
