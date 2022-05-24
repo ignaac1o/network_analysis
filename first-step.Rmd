@@ -1156,7 +1156,98 @@ assortativity
 
 As we could expect once we have evaluated the scatter plot and due to the fact that each station is connected more or less with others, the network is neutral since the assortativity value is -0.00797, being close to zero value.
 
+## Assess the number of communities in your network using classical and generalized random graph models.
 
+### Classical random graph models
+
+In this section, we will generate random network based on two different classical models: **Erdös and Rényi model** and  **Gilbert model**.
+
+For this purpose, we need to feed the methods that generate the random graphs with the actual number of vertices and edges of our network. Let's generate the random graph with the first approach: Erdös and Rényi model.
+
+```{r}
+set.seed(10)
+N <- 262
+L <- 10000
+random_graph_ER <- sample_gnm(n=N,m=L)
+random_graph_ER
+```
+
+We plot the network obtained with circular layout.
+
+```{r}
+V(random_graph_ER)$color <- "deepskyblue2"
+plot.igraph(random_graph_ER,layout=layout_in_circle,
+            main="Erdös and Rényi network",
+            vertex.size=8,vertex.label.cex=0.6)
+```
+
+We can see that the network is such dense that we can appreciate the connections. 
+
+Now, we obtain the degree distribution of the generated network in order to compare it with the real degree distribution of our network.
+
+```{r}
+deg_ER <- degree(random_graph_ER)
+deg_dis_ER <- degree_distribution(random_graph_ER)
+par(mfrow=c(2,2))
+plot(0:max(deg_ER),deg_dis_ER,col="deepskyblue2",
+     main="D. distribution of ER network",
+     xlab="Degree",ylab="Frequency",type="h")
+points(0:max(deg_ER),deg_dis_ER,pch=20)
+
+plot(0:max(degree(bicimad)),degree_dist,col="deepskyblue2",
+     main="D. distribution of real network",
+     xlab="Degree",ylab="Frequency",type="h")
+points(0:max(degree(bicimad)),degree_dist,pch=20)
+```
+We can see that both plots are quite similar, i.e. the distributions are skewed to the left because of the large number of edges of the network.
+
+Finally, we obtain the number of components of the generated network.
+
+```{r}
+components(random_graph_ER)
+```
+The number of components of the network is 1 as well as the real Bicimad network.
+
+Now, we generate a network from the Gilbert model. We need to find a value of $c$ in order to obtain a probability $p = \frac{c}{N}$ which satisfies the number of edges of the real network. This value is 77.
+
+```{r}
+set.seed(10)
+p <- 77/N
+random_graph_G <- sample_gnp(n=N,p=p)
+random_graph_G
+```
+We can see that the number of egdes is 10082 with a value for $c$ equals to 77, approximately the number of edges of the real bicimad network ($L =10000$). Now, we follow the same procedure as previously. First, we obtain a plot with circular layout.
+
+```{r}
+V(random_graph_G)$color <- "deepskyblue2"
+plot.igraph(random_graph_G,layout=layout_in_circle,
+            main="Gilbert network",
+            vertex.size=8,vertex.label.cex=0.6)
+```
+
+As expected, again we cannot appreciate the connections between the nodes because of the large value of $L$. We check de degree distributions of the real and generated networks.
+
+```{r}
+deg_G <- degree(random_graph_G)
+deg_dis_G <- degree_distribution(random_graph_G)
+par(mfrow=c(2,2))
+plot(0:max(deg_G),deg_dis_G,col="deepskyblue2",
+     main="D. distribution of Gilbert network",
+     xlab="Degree",ylab="Frequency",type="h")
+points(0:max(deg_G),deg_dis_G,pch=20)
+
+plot(0:max(degree(bicimad)),degree_dist,col="deepskyblue2",
+     main="D. distribution of real network",
+     xlab="Degree",ylab="Frequency",type="h")
+points(0:max(degree(bicimad)),degree_dist,pch=20)
+```
+Again, the degree distributions are skewed to the left. Finally, we obtain the number of components of the generated network.
+
+```{r}
+components(random_graph_G)
+```
+
+The number of components is 1, the same number of components than the real network.
 
 ## Check wheter your network has small world property using classical random graph models
 
@@ -1241,3 +1332,5 @@ hist(num_ave_path_length,col=color_2,
 ```
 
 As it can be seen, the clustering coefficient for the real network is much larger than those for the ones generated at random. Furthermore, the average path length is also higher but not that much. Therefore we cans ay that the bicimad network might have small world properties.
+
+
